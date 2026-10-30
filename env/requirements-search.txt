@@ -1,0 +1,2 @@
+# search: Optuna, for the propose command (Bayesian search that writes the next sweep file).
+optuna==5.0.0

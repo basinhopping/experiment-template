@@ -1,0 +1,393 @@
+{
+ "sweep_id": "example_sequence_models",
+ "description": "Models of a sequence's steps on synthetic sequences whose classes differ in frequency: a recurrent network (the base), a one-dimensional CNN, a Transformer, a pooling head that reads the steps without their order (the weak baseline here), and composite models joined from blocks; then normalization, random crops with averaged windows, masks, bfloat16, an adversarial head on the row groups, and two external datasets (a noisier sample, and one holding two of the three classes), chosen by balanced accuracy, with the shuffled-label control.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "sequences",
+   "n_rows": 600,
+   "n_features": 4,
+   "n_groups": 3,
+   "noise": 0.5,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [],
+  "features": {
+   "name": "sequence",
+   "normalization": "global",
+   "group_column": null
+  },
+  "model": {
+   "name": "rnn",
+   "time_pool": 1,
+   "input_dropout": 0.0,
+   "proj_dim": null,
+   "activation": "relu",
+   "rnn": "gru",
+   "rnn_hidden": 32,
+   "rnn_layers": 1,
+   "bidirectional": true,
+   "rnn_dropout": 0.0,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.1
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 30,
+   "batch_size": 32,
+   "eval_batch_size": 128,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "models",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "lstm_last": {
+     "model.rnn": "lstm",
+     "model.pooling": "last"
+    },
+    "cnn1d": {
+     "model": {
+      "name": "cnn1d",
+      "channels": [
+       16,
+       32
+      ],
+      "convs_per_block": 1,
+      "kernel_size": 3,
+      "pool": 2,
+      "norm": "batch",
+      "norm_groups": null,
+      "activation": "relu",
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "dropout": 0.1
+     }
+    },
+    "transformer": {
+     "model": {
+      "name": "transformer",
+      "time_pool": 1,
+      "input_dropout": 0.0,
+      "d_model": 32,
+      "n_heads": 4,
+      "n_layers": 2,
+      "ff_dim": 64,
+      "transformer_dropout": 0.1,
+      "transformer_activation": "gelu",
+      "norm_first": true,
+      "positional": "sinusoidal",
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "activation": "relu",
+      "dropout": 0.1
+     }
+    },
+    "sequence_pool": {
+     "model": {
+      "name": "sequence_pool",
+      "time_pool": 4,
+      "input_dropout": 0.0,
+      "proj_dim": 32,
+      "activation": "relu",
+      "pooling": "stats",
+      "classifier_hidden": 32,
+      "dropout": 0.1
+     }
+    },
+    "composite_conv1d_rnn": {
+     "model": {
+      "name": "composite",
+      "front": "conv1d",
+      "conv1d": {
+       "channels": [
+        16
+       ],
+       "convs_per_block": 1,
+       "kernel_size": 3,
+       "pool": 2,
+       "norm": "batch",
+       "norm_groups": null,
+       "activation": "relu"
+      },
+      "conv2d": null,
+      "time_pool": 1,
+      "input_dropout": 0.0,
+      "proj_dim": null,
+      "block": "rnn",
+      "rnn": {
+       "rnn": "gru",
+       "rnn_hidden": 32,
+       "rnn_layers": 1,
+       "bidirectional": true,
+       "rnn_dropout": 0.0
+      },
+      "transformer": null,
+      "lif": null,
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "activation": "relu",
+      "dropout": 0.1
+     }
+    },
+    "composite_conv2d_transformer": {
+     "model": {
+      "name": "composite",
+      "front": "conv2d",
+      "conv1d": null,
+      "conv2d": {
+       "channels": [
+        8,
+        16
+       ],
+       "convs_per_block": 1,
+       "kernel_size": 3,
+       "pool_rows": 2,
+       "pool_cols": 1,
+       "norm": "batch",
+       "norm_groups": null,
+       "norm_subbands": null,
+       "activation": "relu",
+       "row_reduce": "flatten"
+      },
+      "time_pool": 1,
+      "input_dropout": 0.0,
+      "proj_dim": null,
+      "block": "transformer",
+      "rnn": null,
+      "transformer": {
+       "d_model": 32,
+       "n_heads": 4,
+       "n_layers": 1,
+       "ff_dim": 64,
+       "transformer_dropout": 0.1,
+       "transformer_activation": "gelu",
+       "norm_first": true,
+       "positional": "sinusoidal"
+      },
+      "lif": null,
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "activation": "relu",
+      "dropout": 0.1
+     }
+    },
+    "composite_lif": {
+     "model": {
+      "name": "composite",
+      "front": "none",
+      "conv1d": null,
+      "conv2d": null,
+      "time_pool": 1,
+      "input_dropout": 0.0,
+      "proj_dim": 32,
+      "block": "lif",
+      "rnn": null,
+      "transformer": null,
+      "lif": {
+       "lif_hidden": [
+        64
+       ],
+       "recurrent": false,
+       "lif_norm": "none",
+       "lif_dropout": 0.0,
+       "beta": 0.9,
+       "learn_beta": "none",
+       "threshold": 1.0,
+       "reset": "subtract",
+       "detach_reset": true,
+       "surrogate": "atan",
+       "surrogate_slope": 2.0,
+       "readout_beta": 0.0,
+       "rate_weight": 0.0,
+       "rate_target": 0.1
+      },
+      "pooling": "readout",
+      "classifier_hidden": null,
+      "activation": "relu",
+      "dropout": 0.1
+     }
+    }
+   }
+  },
+  {
+   "name": "inputs_and_training",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "item_normalization": {
+     "features.normalization": "item"
+    },
+    "group_normalization": {
+     "features.normalization": "group",
+     "features.group_column": "group"
+    },
+    "no_normalization": {
+     "features": {
+      "name": "none"
+     }
+    },
+    "crop_and_windows": {
+     "fit.crop": 20,
+     "fit.eval_window": {
+      "window": 20,
+      "hop": 10
+     }
+    },
+    "masks": {
+     "fit.augment": [
+      {
+       "name": "mask",
+       "row_masks": 1,
+       "row_mask_width": 1,
+       "col_masks": 2,
+       "col_mask_width": 5
+      }
+     ]
+    },
+    "bf16": {
+     "fit.precision": "bf16"
+    },
+    "aux_adversarial_group": {
+     "fit.aux": {
+      "mode": "adversarial",
+      "task": "classification",
+      "columns": [
+       "group"
+      ],
+      "classes": [
+       "g0",
+       "g1",
+       "g2",
+       "g3",
+       "g4"
+      ],
+      "weight": 0.1,
+      "loss": "cross_entropy"
+     }
+    },
+    "external": {
+     "fit.external": [
+      {
+       "name": "noisier",
+       "data": {
+        "name": "synthetic",
+        "generator": "sequences",
+        "n_rows": 600,
+        "n_features": 4,
+        "n_groups": 3,
+        "noise": 0.8,
+        "seed": 7
+       },
+       "restrict_classes": false
+      },
+      {
+       "name": "two_classes",
+       "data": {
+        "name": "synthetic",
+        "generator": "sequences",
+        "n_rows": 200,
+        "n_features": 4,
+        "n_groups": 2,
+        "noise": 0.5,
+        "seed": 8
+       },
+       "restrict_classes": true
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,211 @@
+{
+ "sweep_id": "example_embed_manifold",
+ "description": "Unrolling a swiss roll: Isomap against PCoA, metric and non-metric MDS, locally linear embedding (standard, modified, Hessian, LTSA) and spectral embedding, on subsamples whose rows are both fitted and evaluated (MDS and spectral embedding cannot place new rows), chosen by trustworthiness.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "swiss_roll",
+   "n_rows": 600,
+   "n_features": 3,
+   "n_groups": 4,
+   "noise": 0.05,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "embedding",
+   "criteria": [
+    "trustworthiness",
+    "continuity",
+    "knn_preservation"
+   ],
+   "select": "trustworthiness",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "n_neighbors": 10,
+   "reference": "truth",
+   "reveal_metrics": [
+    "knn_label_agreement",
+    "reference_silhouette"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "isomap",
+   "n_components": 2,
+   "n_neighbors": 10,
+   "metric": "euclidean",
+   "eigen_solver": "auto",
+   "path_method": "auto",
+   "extra": {}
+  },
+  "fit": {
+   "name": "embedder",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "pcoa": {
+     "model": {
+      "name": "pcoa",
+      "n_components": 2,
+      "metric": "euclidean"
+     }
+    },
+    "mds_metric": {
+     "model": {
+      "name": "mds",
+      "n_components": 2,
+      "metric_mds": true,
+      "metric": "euclidean",
+      "init": "classical_mds",
+      "n_init": 1,
+      "max_iter": 300,
+      "eps": 1e-06,
+      "normalized_stress": true,
+      "extra": {}
+     }
+    },
+    "mds_nonmetric": {
+     "model": {
+      "name": "mds",
+      "n_components": 2,
+      "metric_mds": false,
+      "metric": "euclidean",
+      "init": "classical_mds",
+      "n_init": 1,
+      "max_iter": 300,
+      "eps": 1e-06,
+      "normalized_stress": true,
+      "extra": {}
+     }
+    },
+    "lle_standard": {
+     "model": {
+      "name": "lle",
+      "n_components": 2,
+      "n_neighbors": 10,
+      "method": "standard",
+      "reg": 0.001,
+      "eigen_solver": "dense",
+      "hessian_tol": 0.0001,
+      "modified_tol": 1e-12,
+      "extra": {}
+     }
+    },
+    "lle_modified": {
+     "model": {
+      "name": "lle",
+      "n_components": 2,
+      "n_neighbors": 10,
+      "method": "modified",
+      "reg": 0.001,
+      "eigen_solver": "dense",
+      "hessian_tol": 0.0001,
+      "modified_tol": 1e-12,
+      "extra": {}
+     }
+    },
+    "lle_hessian": {
+     "model": {
+      "name": "lle",
+      "n_components": 2,
+      "n_neighbors": 10,
+      "method": "hessian",
+      "reg": 0.001,
+      "eigen_solver": "dense",
+      "hessian_tol": 0.0001,
+      "modified_tol": 1e-12,
+      "extra": {}
+     }
+    },
+    "lle_ltsa": {
+     "model": {
+      "name": "lle",
+      "n_components": 2,
+      "n_neighbors": 10,
+      "method": "ltsa",
+      "reg": 0.001,
+      "eigen_solver": "dense",
+      "hessian_tol": 0.0001,
+      "modified_tol": 1e-12,
+      "extra": {}
+     }
+    },
+    "spectral_embedding": {
+     "model": {
+      "name": "spectral_embedding",
+      "n_components": 2,
+      "affinity": "nearest_neighbors",
+      "n_neighbors": 10,
+      "gamma": null,
+      "eigen_solver": "arpack",
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "neighbours",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_neighbors": [
+     6,
+     15
+    ]
+   }
+  }
+ ]
+}

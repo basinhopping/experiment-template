@@ -1,0 +1,131 @@
+{
+ "sweep_id": "check_flow_embedding",
+ "description": "The flow check (TESTING.md): two-dimensional embeddings of the uploaded table data/flow/blobs.csv, fitted on 70% of the rows and judged on the rest: PCA against UMAP and truncated SVD.",
+ "purpose": "screen",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "flow/blobs.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "re:^f[0-9]+$"
+   ],
+   "exclude": [],
+   "keep": [
+    "truth",
+    "group",
+    "published_split"
+   ],
+   "categorical": "codes",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "fit_holdout",
+   "fit_fraction": 0.7,
+   "salt": "flow"
+  },
+  "task": {
+   "name": "embedding",
+   "criteria": [
+    "trustworthiness",
+    "continuity",
+    "knn_preservation"
+   ],
+   "select": "trustworthiness",
+   "sample_rows": 500,
+   "sample_salt": "flow",
+   "n_neighbors": 10,
+   "reference": "truth",
+   "reveal_metrics": [
+    "knn_label_agreement",
+    "reference_silhouette"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "pca",
+   "n_components": 2,
+   "solver": "full",
+   "whiten": false,
+   "batch_size": null,
+   "extra": {}
+  },
+  "fit": {
+   "name": "embedder",
+   "device": "auto",
+   "assign": "predict"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "umap": {
+     "model": {
+      "name": "umap",
+      "n_components": 2,
+      "n_neighbors": 15,
+      "min_dist": 0.1,
+      "spread": 1.0,
+      "metric": "euclidean",
+      "n_epochs": null,
+      "learning_rate": 1.0,
+      "init": "spectral",
+      "set_op_mix_ratio": 1.0,
+      "local_connectivity": 1.0,
+      "repulsion_strength": 1.0,
+      "negative_sample_rate": 5,
+      "densmap": false,
+      "gpu_build_algo": "brute_force_knn",
+      "extra": {}
+     }
+    },
+    "truncated_svd": {
+     "model": {
+      "name": "truncated_svd",
+      "n_components": 2,
+      "n_iter": 7,
+      "extra": {}
+     }
+    }
+   }
+  }
+ ]
+}

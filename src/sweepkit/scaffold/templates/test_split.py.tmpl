@@ -1,0 +1,29 @@
+"""{{name}} gives disjoint roles of the stated sizes, the same on every run (written by scaffold)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_roles(self):
+        load_catalog()
+        import numpy as np
+
+        from sweepkit.data.base import RowTable
+        from sweepkit.registry import SPLITS
+        from sweepkit.settings import validate
+
+        entry = SPLITS.get("{{name}}")
+        s = validate(entry.settings_class, {"val_fraction": 0.2, "test_fraction": 0.2, "salt": "t"}, "split")
+        table = RowTable(np.array([f"r{i}" for i in range(100)]), {})
+        (fold,) = entry.target.make(s, table)
+        sizes = {role: len(rows) for role, rows in fold.roles.items()}
+        self.assertEqual(sizes, {"train": 60, "val": 20, "test": 20})
+        every = np.concatenate(list(fold.roles.values()))
+        self.assertEqual(np.unique(every).size, 100)
+        (again,) = entry.target.make(s, table)
+        self.assertTrue(all(np.array_equal(fold.roles[r], again.roles[r]) for r in fold.roles))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,174 @@
+{
+ "sweep_id": "example_singlecell_workflow",
+ "description": "The single-cell workflow on simulated counts with four planted cell types: total-count normalization, log1p, highly variable genes and principal components, then Leiden (scanpy, profile singlecell), against the template's own Leiden and k-means on the same components, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "counts",
+   "n_rows": 800,
+   "n_features": 200,
+   "n_groups": 4,
+   "noise": 0.3,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 500,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "transform",
+    "method": "total_count",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": 10000.0,
+    "n_quantiles": null,
+    "output": null
+   },
+   {
+    "name": "transform",
+    "method": "log1p",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": null,
+    "n_quantiles": null,
+    "output": null
+   },
+   {
+    "name": "select_features",
+    "method": "highly_variable",
+    "n": 100,
+    "threshold": null,
+    "n_bins": 20
+   },
+   {
+    "name": "reduce",
+    "method": {
+     "name": "pca",
+     "n_components": 10,
+     "solver": "full",
+     "whiten": false,
+     "batch_size": null,
+     "extra": {}
+    }
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "scanpy_leiden",
+   "n_neighbors": 15,
+   "metric": "euclidean",
+   "resolution": 0.5,
+   "flavor": "igraph",
+   "n_iterations": 2,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "leiden_networkx": {
+     "model": {
+      "name": "leiden",
+      "n_neighbors": 15,
+      "metric": "euclidean",
+      "graph_search": "exact",
+      "graph_weights": "connectivity",
+      "resolution": 0.5,
+      "quality": "modularity",
+      "backend": "networkx",
+      "extra": {}
+     }
+    },
+    "kmeans": {
+     "model": {
+      "name": "kmeans",
+      "n_clusters": 4,
+      "init": "k-means++",
+      "n_init": 4,
+      "max_iter": 300,
+      "tol": 0.0001,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.resolution": [
+     0.25,
+     1.0
+    ]
+   }
+  }
+ ]
+}

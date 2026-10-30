@@ -1,0 +1,28 @@
+"""{{name}}: a stage kind (say in one sentence which configurations it makes from the base).
+
+Written by `python -m sweepkit.cli scaffold --kind stage_kind`. A stage kind receives its stage (with the keys it
+declares besides name, kind, priority and seeds), the base settings and the expansion context, and returns
+(label, overrides) pairs; expand does the rest (validation, hashing, duplicates, one protocol per sweep). The body
+here makes the corners of a grid: every combination of each factor's first and last level.
+docs/EXTENDING.md walks through it.
+"""
+import itertools
+
+from sweepkit.sweep.design import SweepError, changed_only, label_of, levels_of, register_stage_kind
+
+
+@register_stage_kind("{{name}}", ("factors",))
+def {{name}}(stage, base, context):
+    factors = {f: levels_of(f, levels) for f, levels in stage["factors"].items()}
+    if not factors:
+        raise SweepError(f"stage {stage['name']}: give at least one factor")
+    corners = [(levels[0], levels[-1]) if len(levels) > 1 else (levels[0],) for levels in factors.values()]
+    out = []
+    for combination in itertools.product(*corners):
+        overrides = {}
+        for level in combination:
+            overrides.update(level)
+        changed = changed_only(base, overrides)
+        if changed:
+            out.append((f"{{name}}: {label_of(changed)}", overrides))
+    return out

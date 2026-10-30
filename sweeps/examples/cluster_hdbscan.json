@@ -1,0 +1,153 @@
+{
+ "sweep_id": "example_cluster_hdbscan",
+ "description": "HDBSCAN on clusters of different densities: scikit-learn's, the hdbscan package's (outlier scores), fast_hdbscan's, PLSCAN (which picks the resolution itself) and FLASC branches, chosen by DBCV.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "densities",
+   "n_rows": 800,
+   "n_features": 2,
+   "n_groups": 3,
+   "noise": 0.5,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "dbcv",
+    "silhouette",
+    "n_clusters",
+    "noise_fraction"
+   ],
+   "select": "dbcv",
+   "sample_rows": 500,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "hdbscan_sklearn",
+   "min_cluster_size": 20,
+   "min_samples": null,
+   "cluster_selection_epsilon": 0.0,
+   "cluster_selection_method": "eom",
+   "allow_single_cluster": false,
+   "metric": "euclidean",
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "hdbscan_package": {
+     "model.name": "hdbscan"
+    },
+    "fast_hdbscan": {
+     "model": {
+      "name": "fast_hdbscan",
+      "min_cluster_size": 20,
+      "min_samples": null,
+      "cluster_selection_method": "eom",
+      "cluster_selection_epsilon": 0.0,
+      "allow_single_cluster": false,
+      "extra": {}
+     }
+    },
+    "plscan": {
+     "model": {
+      "name": "plscan",
+      "base_min_cluster_size": 10,
+      "min_samples": 5,
+      "max_layers": 4,
+      "layer_similarity_threshold": 0.2,
+      "extra": {}
+     }
+    },
+    "flasc_branches": {
+     "model": {
+      "name": "flasc_branches",
+      "min_cluster_size": 20,
+      "min_samples": null,
+      "allow_single_cluster": false,
+      "min_branch_size": 10,
+      "label_sides_as_branches": false,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.min_cluster_size": [
+     10,
+     40
+    ],
+    "model.cluster_selection_method": [
+     "leaf"
+    ]
+   }
+  }
+ ]
+}

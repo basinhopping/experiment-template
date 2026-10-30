@@ -1,0 +1,3 @@
+# graph: PyTorch Geometric, optional; the template's own GCN and GAT need only torch. Installed without the [full]
+# extra, which would pin an old numba (pin check R4); its compiled add-ons are not confirmed for torch 2.14.
+torch-geometric==2.8.1

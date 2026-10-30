@@ -1,0 +1,21 @@
+"""{{name}} on hand-computed cases (written by scaffold)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_by_hand(self):
+        load_catalog()
+        import numpy as np
+
+        from sweepkit.registry import METRICS
+        from sweepkit.tasks.supervised import Outputs
+
+        o = Outputs(np.array([0, 0, 1, 1]), np.array([0, 1, 1, 1]), None, "none", ("a", "b"))
+        self.assertAlmostEqual(METRICS.get("{{name}}")["fn"](o, None), 0.5)        # recall a 1/2, b 2/2
+        self.assertAlmostEqual(METRICS.get("{{name}}")["fn"](o, np.array([3, 1, 1, 1])), 0.75)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,7 @@
+# automl: TPOT, in its own environment (setup_env.sh automl core automl). LGPL-3.0.
+# setuptools below 82 keeps pkg_resources, which TPOT's dependency stopit imports (pin check R3).
+tpot==1.1.0
+xgboost==3.4.1
+lightgbm==4.7.0
+optuna==5.0.0
+setuptools<82

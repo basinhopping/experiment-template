@@ -1,0 +1,45 @@
+"""{{name}}: an outlier detector (say in one sentence what it does and where it comes from).
+
+Written by `python -m sweepkit.cli scaffold --kind detector`. Change the settings class, fit and score (the body
+here scores a row by its distance to its k-th nearest fit row, so the scaffold runs as written; higher is more
+unusual), flag (the rows the method calls outliers), info() and params(). docs/EXTENDING.md walks through it.
+"""
+import dataclasses
+
+import numpy as np
+
+from sweepkit.models.base import Detector, plain_params
+from sweepkit.registry import register_model
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    k: int                          # the neighbour whose distance is the score
+    flag_quantile: float            # rows scoring above this quantile of the fit rows' scores are flagged
+
+
+@register_model("{{name}}", settings={{Name}}Settings, family="detector", tasks=("outlier",), kinds=("tabular",),
+                gpu="none", profile="core", packages=("sklearn",), description="{{name}} (describe it in a few words)",
+                example="{{example}}")
+class {{Name}}(Detector):
+    def fit(self, x):
+        from sklearn.neighbors import NearestNeighbors
+
+        self.x_fit = np.asarray(x, dtype=np.float64)
+        self.nn = NearestNeighbors(n_neighbors=self.s.k + 1).fit(self.x_fit)
+        distances, _ = self.nn.kneighbors(self.x_fit)
+        self.fit_scores = distances[:, self.s.k]          # column 0 is the row itself
+        self.threshold = float(np.quantile(self.fit_scores, self.s.flag_quantile))
+
+    def score(self, x):
+        x = np.asarray(x, dtype=np.float64)
+        if x.shape == self.x_fit.shape and np.array_equal(x, self.x_fit):
+            return self.fit_scores
+        distances, _ = self.nn.kneighbors(x, n_neighbors=self.s.k)
+        return distances[:, self.s.k - 1]
+
+    def flag(self, x):
+        return self.score(x) > self.threshold
+
+    def params(self):
+        return plain_params(dataclasses.asdict(self.s))

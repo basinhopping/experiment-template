@@ -1,0 +1,158 @@
+{
+ "sweep_id": "example_classify_trees",
+ "description": "Trees on three planted classes with a published split: the column published_split says train, val or test for every row, as many datasets ship. No preparation (trees need no scaling). One decision tree against a random forest and extremely randomized trees, depth one value at a time, and the balanced accuracy of each group.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fixed"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "classification",
+   "n_rows": 600,
+   "n_features": 8,
+   "n_groups": 3,
+   "noise": 1.5,
+   "seed": 4
+  },
+  "split": {
+   "name": "fixed",
+   "column": "published_split",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "f1_micro",
+    "f1_weighted",
+    "recall_macro",
+    "precision_macro",
+    "mcc",
+    "cohen_kappa",
+    "log_loss",
+    "brier",
+    "roc_auc",
+    "average_precision"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "decision_tree",
+   "max_depth": 5,
+   "min_samples_leaf": 5,
+   "max_features": null,
+   "class_weight": "none",
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "random_forest": {
+     "model": {
+      "name": "random_forest",
+      "n_estimators": 200,
+      "max_depth": null,
+      "min_samples_leaf": 1,
+      "max_features": 0.5,
+      "bootstrap": true,
+      "class_weight": "none",
+      "n_jobs": 1,
+      "extra": {}
+     }
+    },
+    "extra_trees": {
+     "model": {
+      "name": "extra_trees",
+      "n_estimators": 200,
+      "max_depth": null,
+      "min_samples_leaf": 1,
+      "max_features": 0.5,
+      "bootstrap": true,
+      "class_weight": "none",
+      "n_jobs": 1,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "depth",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.max_depth": [
+     2,
+     10,
+     null
+    ],
+    "model.min_samples_leaf": [
+     1,
+     20
+    ]
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

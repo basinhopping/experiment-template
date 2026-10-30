@@ -1,0 +1,153 @@
+{
+ "sweep_id": "example_text_finetune",
+ "description": "A pretrained text encoder (all-MiniLM-L6-v2 from the Hugging Face Hub, pinned to a commit) fine-tuned on synthetic texts with planted classes: every weight, the top two layers, or LoRA adapters on the attention's query and value; mean or first-token pooling; chosen by balanced accuracy, with the shuffled-label control. Needs the pretrained profile and the model's files (downloaded once into HF_HOME).",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "text",
+   "n_rows": 300,
+   "n_features": 8,
+   "n_groups": 3,
+   "noise": 0.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "holdout",
+   "val_fraction": 0.2,
+   "test_fraction": 0.2,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "hf_finetune",
+   "source": "hub",
+   "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+   "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+   "max_length": 32,
+   "pooling": "mean",
+   "train": "full",
+   "top_layers": null,
+   "lora_r": null,
+   "lora_alpha": null,
+   "lora_dropout": null,
+   "lora_targets": [],
+   "activation": "relu",
+   "dropout": 0.1,
+   "classifier_hidden": null,
+   "extra": {}
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 5,
+   "batch_size": 16,
+   "eval_batch_size": 64,
+   "lr": 5e-05,
+   "weight_decay": 0.01,
+   "warmup_epochs": 1,
+   "schedule": "cosine",
+   "early_stopping_patience": null,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "training",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "top_two_layers": {
+     "model.train": "top",
+     "model.top_layers": 2,
+     "fit.lr": 0.0001
+    },
+    "lora": {
+     "model.train": "lora",
+     "model.lora_r": 8,
+     "model.lora_alpha": 16,
+     "model.lora_dropout": 0.1,
+     "model.lora_targets": [
+      "query",
+      "value"
+     ],
+     "fit.lr": 0.0005
+    },
+    "cls_pooling": {
+     "model.pooling": "cls"
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 5,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

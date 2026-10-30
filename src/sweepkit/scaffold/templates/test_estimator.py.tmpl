@@ -1,0 +1,28 @@
+"""{{name}} learns separable classes (written by scaffold; set the threshold from runs on the synthetic data)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_separable_classes(self):
+        load_catalog()
+        import numpy as np
+        from sklearn.metrics import balanced_accuracy_score
+
+        from sweepkit.data.synthetic import make
+        from sweepkit.registry import MODELS
+        from sweepkit.settings import validate
+
+        made = make("classification", 400, 6, 3, 0.5, 1)
+        y = np.array([int(t[1:]) for t in made["columns"]["truth"]])
+        entry = MODELS.get("{{name}}")
+        settings = validate(entry.settings_class, {"metric": "euclidean", "shrink_threshold": None, "extra": {}},
+                            "model")
+        model = entry.target.make(settings, "classification", 0, "cpu")
+        model.fit(made["x"][:300], y[:300])
+        self.assertGreaterEqual(balanced_accuracy_score(y[300:], model.predict(made["x"][300:])), 0.9)
+
+
+if __name__ == "__main__":
+    unittest.main()

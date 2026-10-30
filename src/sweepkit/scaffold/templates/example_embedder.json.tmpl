@@ -1,0 +1,24 @@
+{
+ "sweep_id": "example_{{example}}",
+ "description": "{{name}} on a planted low-rank matrix, against PCA, with two numbers of components.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": ["sub1", "sub2", "sub3"],
+ "base": {
+  "data": {"name": "synthetic", "generator": "low_rank", "n_rows": 500, "n_features": 10, "n_groups": 3, "noise": 0.05, "seed": 1},
+  "split": {"name": "subsamples", "k": 3, "fraction": 0.8, "salt": "example"},
+  "task": {"name": "embedding", "criteria": ["trustworthiness", "explained_variance"], "select": "trustworthiness",
+           "sample_rows": 300, "sample_salt": "example", "n_neighbors": 10, "reference": null, "reveal_metrics": [],
+           "criteria_options": {}},
+  "prep": [{"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}],
+  "features": {"name": "none"},
+  "model": {"name": "{{name}}", "n_components": 3},
+  "fit": {"name": "embedder", "device": "cpu", "assign": "fit_rows"}
+ },
+ "stages": [
+  {"name": "base", "kind": "base", "priority": 9, "seeds": [1, 2, 3]},
+  {"name": "against", "kind": "variants", "priority": 8, "seeds": [1, 2, 3],
+   "variants": {"pca": {"model": {"name": "pca", "n_components": 3, "solver": "full", "whiten": false, "batch_size": null, "extra": {}}}}},
+  {"name": "components", "kind": "one_factor_at_a_time", "priority": 7, "seeds": [1, 2, 3], "factors": {"model.n_components": [2]}}
+ ]
+}

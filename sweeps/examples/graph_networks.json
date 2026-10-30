@@ -1,0 +1,159 @@
+{
+ "sweep_id": "example_graph_networks",
+ "description": "Node classification on a planted graph (three communities, node features weakly informative): a graph convolutional network (symmetric normalization, self loops, one graph layer) against a graph attention network, and against mean aggregation and no self loops, every epoch one step over the whole graph with the loss on the training nodes, chosen by balanced accuracy, with the shuffled-label control. Both models are transductive: they read every node's features and edges, never the labels of validation or test nodes, and every report says so.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "graph",
+   "n_rows": 300,
+   "n_features": 8,
+   "n_groups": 3,
+   "noise": 0.5,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "gcn",
+   "hidden": [
+    16
+   ],
+   "normalize": "symmetric",
+   "self_loops": true,
+   "activation": "relu",
+   "input_dropout": 0.5,
+   "dropout": 0.5,
+   "classifier_hidden": null
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 200,
+   "batch_size": 1024,
+   "eval_batch_size": 1024,
+   "lr": 0.01,
+   "weight_decay": 0.0005,
+   "warmup_epochs": 0,
+   "schedule": "constant",
+   "early_stopping_patience": 20,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "models",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "gat": {
+     "model": {
+      "name": "gat",
+      "hidden": [
+       8
+      ],
+      "heads": 8,
+      "negative_slope": 0.2,
+      "attention_dropout": 0.6,
+      "self_loops": true,
+      "activation": "elu",
+      "input_dropout": 0.6,
+      "dropout": 0.6,
+      "classifier_hidden": null
+     },
+     "fit.lr": 0.005
+    },
+    "gcn_mean": {
+     "model.normalize": "mean"
+    },
+    "gcn_no_self_loops": {
+     "model.self_loops": false
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 5,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

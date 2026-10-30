@@ -1,0 +1,5 @@
+# singlecell: scanpy, anndata and scvi-tools on the CPU (Python 3.12 or 3.13). scvi-tools brings Lightning, whose own
+# tests stop below torch 2.10, so run its smoke test on torch 2.14 before relying on it (pin check R5).
+scanpy==1.12.4
+anndata==0.13.4
+scvi-tools==1.5.1

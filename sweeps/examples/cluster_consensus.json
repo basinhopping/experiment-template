@@ -1,0 +1,131 @@
+{
+ "sweep_id": "example_cluster_consensus",
+ "description": "Consensus clustering: k-means run on 20 subsamples, the co-association of every pair, then average linkage; with a Gaussian mixture as the base too, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "blobs",
+   "n_rows": 400,
+   "n_features": 5,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "dbcv",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "consensus",
+   "base": {
+    "name": "kmeans",
+    "n_clusters": 3,
+    "init": "k-means++",
+    "n_init": 1,
+    "max_iter": 100,
+    "tol": 0.0001,
+    "extra": {}
+   },
+   "n_resamples": 20,
+   "fraction": 0.8,
+   "n_clusters": 3,
+   "linkage": "average"
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "gmm_base": {
+     "model.base": {
+      "name": "gmm",
+      "n_components": 3,
+      "covariance_type": "full",
+      "n_init": 1,
+      "max_iter": 100,
+      "reg_covar": 1e-06,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_clusters": [
+     2,
+     4
+    ]
+   }
+  }
+ ]
+}

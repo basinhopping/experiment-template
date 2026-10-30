@@ -1,0 +1,153 @@
+{
+ "sweep_id": "example_embed_deep",
+ "description": "Deep embedders on planted blobs: an autoencoder against a variational autoencoder (beta 1 and 4), fitted on 70% of the rows and placing the rest with the encoder, chosen by trustworthiness; the decoder gives the reconstruction error, and the planted groups are revealed only after the choice.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "blobs",
+   "n_rows": 600,
+   "n_features": 10,
+   "n_groups": 4,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "fit_holdout",
+   "fit_fraction": 0.7,
+   "salt": "example"
+  },
+  "task": {
+   "name": "embedding",
+   "criteria": [
+    "trustworthiness",
+    "continuity",
+    "knn_preservation",
+    "reconstruction_error"
+   ],
+   "select": "trustworthiness",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "n_neighbors": 10,
+   "reference": "truth",
+   "reveal_metrics": [
+    "knn_label_agreement",
+    "reference_silhouette"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "autoencoder",
+   "hidden": [
+    32
+   ],
+   "latent_dim": 2,
+   "activation": "relu",
+   "dropout": 0.0,
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.003,
+   "weight_decay": 0.0001
+  },
+  "fit": {
+   "name": "embedder",
+   "device": "auto",
+   "assign": "predict"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "vae": {
+     "model": {
+      "name": "vae",
+      "hidden": [
+       32
+      ],
+      "latent_dim": 2,
+      "activation": "relu",
+      "dropout": 0.0,
+      "epochs": 60,
+      "batch_size": 32,
+      "lr": 0.003,
+      "weight_decay": 0.0001,
+      "beta": 1.0
+     }
+    },
+    "vae_beta_4": {
+     "model": {
+      "name": "vae",
+      "hidden": [
+       32
+      ],
+      "latent_dim": 2,
+      "activation": "relu",
+      "dropout": 0.0,
+      "epochs": 60,
+      "batch_size": 32,
+      "lr": 0.003,
+      "weight_decay": 0.0001,
+      "beta": 4.0
+     }
+    },
+    "deeper": {
+     "model.hidden": [
+      64,
+      32
+     ]
+    }
+   }
+  },
+  {
+   "name": "latent",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.latent_dim": [
+     3,
+     5
+    ]
+   }
+  }
+ ]
+}

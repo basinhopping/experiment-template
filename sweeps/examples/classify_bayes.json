@@ -1,0 +1,149 @@
+{
+ "sweep_id": "example_classify_bayes",
+ "description": "Naive Bayes on three planted classes with leave one group out: one fold per value of the column group, in the order given, each tested on its group and validated on the next. Gaussian naive Bayes and its smoothing, then Bernoulli on the standardized columns and multinomial on min-max scaled (non-negative) columns.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "test_g0",
+  "test_g1",
+  "test_g2",
+  "test_g3",
+  "test_g4"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "classification",
+   "n_rows": 500,
+   "n_features": 6,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 3
+  },
+  "split": {
+   "name": "leave_one_group_out",
+   "group": "group",
+   "order": [
+    "g0",
+    "g1",
+    "g2",
+    "g3",
+    "g4"
+   ],
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "mcc",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "naive_bayes",
+   "variant": "gaussian",
+   "smoothing": 1e-09,
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "smoothing",
+   "kind": "one_factor_at_a_time",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.smoothing": [
+     1e-06,
+     0.001
+    ]
+   }
+  },
+  {
+   "name": "variants",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "bernoulli": {
+     "model.variant": "bernoulli",
+     "model.smoothing": 1.0
+    },
+    "multinomial_minmax": {
+     "prep.scale.method": "minmax",
+     "model.variant": "multinomial",
+     "model.smoothing": 1.0
+    },
+    "complement_minmax": {
+     "prep.scale.method": "minmax",
+     "model.variant": "complement",
+     "model.smoothing": 1.0
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,115 @@
+{
+ "sweep_id": "example_cluster_topics",
+ "description": "Topics of word counts by latent Dirichlet allocation (each document's likeliest topic) against k-means on the counts, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "topics",
+   "n_rows": 300,
+   "n_features": 60,
+   "n_groups": 4,
+   "noise": 0.05,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": null,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "lda",
+   "n_topics": 4,
+   "doc_topic_prior": null,
+   "topic_word_prior": null,
+   "learning_method": "batch",
+   "max_iter": 10,
+   "n_init": 4,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "kmeans": {
+     "model": {
+      "name": "kmeans",
+      "n_clusters": 4,
+      "init": "k-means++",
+      "n_init": 4,
+      "max_iter": 300,
+      "tol": 0.0001,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_topics": [
+     3,
+     5
+    ]
+   }
+  }
+ ]
+}

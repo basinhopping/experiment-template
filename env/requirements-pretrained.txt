@@ -1,0 +1,11 @@
+# pretrained: Hugging Face models (fine-tuning, frozen encoders). Downloads model weights into HF_HOME.
+# tokenizers 0.23.3 is the only 0.23 release that accepts huggingface-hub 2 (pin check R1); timm needs torchvision
+# (R2), which comes from the same index as torch on a GPU machine.
+transformers==5.21.0
+tokenizers==0.23.3
+safetensors==0.8.0
+peft==0.21.2
+huggingface-hub==2.3.0
+accelerate==1.15.0
+timm==1.0.30
+torchvision==0.29.1

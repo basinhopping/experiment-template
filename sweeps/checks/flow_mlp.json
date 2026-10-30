@@ -1,0 +1,143 @@
+{
+ "sweep_id": "check_flow_mlp",
+ "description": "The flow check (TESTING.md): a PyTorch network on the GPU (device cuda), one epoch only, on the uploaded table data/flow/classify.csv, with stratified 3-fold cross-validation; two other network shapes beside the base.",
+ "purpose": "screen",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "flow/classify.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "re:^f[0-9]+$"
+   ],
+   "exclude": [],
+   "keep": [
+    "truth",
+    "group",
+    "published_split"
+   ],
+   "categorical": "codes",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "flow",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "mlp",
+   "hidden": [
+    64,
+    64
+   ],
+   "norm": "batch",
+   "activation": "relu",
+   "dropout": 0.1
+  },
+  "fit": {
+   "name": "torch",
+   "device": "cuda",
+   "epochs": 1,
+   "batch_size": 64,
+   "eval_batch_size": 256,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 0,
+   "schedule": "constant",
+   "early_stopping_patience": 1,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "network",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "wide": {
+     "model.hidden": [
+      256
+     ]
+    },
+    "deep": {
+     "model.hidden": [
+      64,
+      64,
+      64
+     ]
+    }
+   }
+  }
+ ]
+}

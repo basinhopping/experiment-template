@@ -1,0 +1,12 @@
+# plan.txt of round {{round}}: node/chain.sh runs these steps in order, from the repository folder, and stops at the
+# first that fails. Lines starting with # are skipped. It lives under sweeps/rounds/ so that it travels to the node
+# with the code, and the tree digest that lines 02 and 03 check covers it. Every step uses the environment
+# ~/venvs/{{project}}-{{environment}}. Step 1 checks the workers' schedule (its GPUs, the environment, and its end,
+# which `date -d` reads now: at least 30 minutes ahead) and starts nothing, so a schedule that would be refused stops
+# the chain before anything is enqueued.
+# Step 2 smoke-tests the sweeps on a free GPU of the round's, as the workers will run them, and enqueues them all or
+# none. Step 3 starts the workers; they stop at the end time, or when less than {{min_free_gb}} GB is free in the
+# home folder.
+env ENVIRONMENT={{environment}} MIN_FREE_GB={{min_free_gb}} bash node/schedule.sh --check {{workers_per_gpu}} "$(date +%s):{{gpus}}" "$(date -d '{{end_time}}' +%s):end"
+env ENVIRONMENT={{environment}} SMOKE_DEVICE=cuda SMOKE_GPUS={{gpus}} bash node/smoke_enqueue.sh {{sweep_files}}
+env ENVIRONMENT={{environment}} MIN_FREE_GB={{min_free_gb}} bash node/schedule.sh {{workers_per_gpu}} "$(date +%s):{{gpus}}" "$(date -d '{{end_time}}' +%s):end"

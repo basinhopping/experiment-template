@@ -1,0 +1,174 @@
+{
+ "sweep_id": "example_embed_linear",
+ "description": "Linear reductions of simulated counts after log1p, fitted on 70% of the rows and placing the rest with each method's transform: PCA (full, randomized, incremental) against truncated SVD, NMF, ICA, factor analysis and kernel PCA, chosen by trustworthiness.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "counts",
+   "n_rows": 600,
+   "n_features": 30,
+   "n_groups": 4,
+   "noise": 0.3,
+   "seed": 1
+  },
+  "split": {
+   "name": "fit_holdout",
+   "fit_fraction": 0.7,
+   "salt": "example"
+  },
+  "task": {
+   "name": "embedding",
+   "criteria": [
+    "trustworthiness",
+    "continuity",
+    "knn_preservation",
+    "explained_variance",
+    "reconstruction_error"
+   ],
+   "select": "trustworthiness",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "n_neighbors": 10,
+   "reference": "truth",
+   "reveal_metrics": [
+    "knn_label_agreement",
+    "reference_silhouette"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "transform",
+    "method": "log1p",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": null,
+    "n_quantiles": null,
+    "output": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "pca",
+   "n_components": 5,
+   "solver": "full",
+   "whiten": false,
+   "batch_size": null,
+   "extra": {}
+  },
+  "fit": {
+   "name": "embedder",
+   "device": "auto",
+   "assign": "predict"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "pca_randomized": {
+     "model.solver": "randomized"
+    },
+    "pca_incremental": {
+     "model.solver": "incremental",
+     "model.batch_size": 100
+    },
+    "truncated_svd": {
+     "model": {
+      "name": "truncated_svd",
+      "n_components": 5,
+      "n_iter": 7,
+      "extra": {}
+     }
+    },
+    "nmf": {
+     "model": {
+      "name": "nmf",
+      "n_components": 5,
+      "init": "nndsvda",
+      "beta_loss": "frobenius",
+      "max_iter": 500,
+      "alpha_w": 0.0,
+      "l1_ratio": 0.0,
+      "extra": {}
+     }
+    },
+    "ica": {
+     "model": {
+      "name": "ica",
+      "n_components": 5,
+      "algorithm": "parallel",
+      "fun": "logcosh",
+      "max_iter": 500,
+      "extra": {}
+     }
+    },
+    "factor_analysis": {
+     "model": {
+      "name": "factor_analysis",
+      "n_components": 5,
+      "rotation": "varimax",
+      "max_iter": 1000,
+      "extra": {}
+     }
+    },
+    "kernel_pca": {
+     "model": {
+      "name": "kernel_pca",
+      "n_components": 5,
+      "kernel": "rbf",
+      "gamma": null,
+      "degree": 3,
+      "fit_inverse_transform": true,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "components",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_components": [
+     2,
+     10
+    ]
+   }
+  }
+ ]
+}

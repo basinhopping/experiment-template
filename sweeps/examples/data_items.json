@@ -1,0 +1,152 @@
+{
+ "sweep_id": "example_data_items",
+ "description": "One file per row (the items dataset): data/synthetic/example_items/, 120 sequences of 3 channels saved as .npy files and listed in index.csv with their class, which make-example-data writes. A recurrent network against a one-dimensional CNN, chosen by balanced accuracy, with the shuffled-label control. Audio (.wav), CSV arrays and text files load the same way (the loader setting).",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "items",
+   "index": "synthetic/example_items/index.csv",
+   "path_column": "path",
+   "row_id": "row_id",
+   "keep": [
+    "truth"
+   ],
+   "kind": "sequence",
+   "loader": "npy",
+   "sample_rate": null
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [],
+  "features": {
+   "name": "sequence",
+   "normalization": "global",
+   "group_column": null
+  },
+  "model": {
+   "name": "rnn",
+   "time_pool": 1,
+   "input_dropout": 0.0,
+   "proj_dim": null,
+   "activation": "relu",
+   "rnn": "gru",
+   "rnn_hidden": 32,
+   "rnn_layers": 1,
+   "bidirectional": true,
+   "rnn_dropout": 0.0,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.1
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 20,
+   "batch_size": 32,
+   "eval_batch_size": 128,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "models",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "cnn1d": {
+     "model": {
+      "name": "cnn1d",
+      "channels": [
+       16,
+       32
+      ],
+      "convs_per_block": 1,
+      "kernel_size": 3,
+      "pool": 2,
+      "norm": "batch",
+      "norm_groups": null,
+      "activation": "relu",
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "dropout": 0.1
+     }
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

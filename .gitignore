@@ -1,0 +1,24 @@
+# Never in git: data, results, queue, logs, local logins and state notes (anchored at the root with a leading slash)
+/data/
+/artifacts/
+/queue/
+/logs/
+/reports/
+/node.local.txt
+/STATE.md
+/VERIFICATION_LOG.md
+/PROJECT.md
+/STARTING_PLAN.md
+/findings.csv
+/CODE_VERSIONS.log
+# environments, caches and what editors and file browsers leave behind
+/.venv*/
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+Thumbs.db

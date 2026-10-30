@@ -1,0 +1,252 @@
+{
+ "sweep_id": "example_audio_logmel",
+ "description": "Audio through a log-mel feature (an example of a domain feature) on synthetic tones whose classes differ in pitch: a CNN with a Transformer (the base) or a recurrent network after it, and a plain CNN over the spectrogram; then speed perturbation, SpecAugment masks, random crops with averaged windows, subspectral normalization, global normalization and bfloat16, chosen by balanced accuracy, with the shuffled-label control.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "audio",
+   "n_rows": 300,
+   "n_features": 1,
+   "n_groups": 3,
+   "noise": 0.05,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [],
+  "features": {
+   "name": "logmel",
+   "sample_rate": 16000,
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "item",
+   "group_column": null
+  },
+  "model": {
+   "name": "cnn_transformer",
+   "channels": [
+    16,
+    32
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_rows": 2,
+   "pool_cols": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "row_reduce": "mean",
+   "d_model": 64,
+   "n_heads": 4,
+   "n_layers": 2,
+   "ff_dim": 128,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": true,
+   "positional": "sinusoidal",
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.1
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 30,
+   "batch_size": 16,
+   "eval_batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "models",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "cnn_rnn": {
+     "model": {
+      "name": "cnn_rnn",
+      "channels": [
+       16,
+       32
+      ],
+      "convs_per_block": 1,
+      "kernel_size": 3,
+      "pool_rows": 2,
+      "pool_cols": 2,
+      "norm": "batch",
+      "norm_groups": null,
+      "norm_subbands": null,
+      "activation": "relu",
+      "row_reduce": "mean",
+      "rnn": "gru",
+      "rnn_hidden": 64,
+      "rnn_layers": 1,
+      "bidirectional": true,
+      "rnn_dropout": 0.0,
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "dropout": 0.1
+     }
+    },
+    "cnn2d": {
+     "model": {
+      "name": "cnn2d",
+      "channels": [
+       16,
+       32
+      ],
+      "convs_per_block": 1,
+      "kernel_size": 3,
+      "pool_rows": 2,
+      "pool_cols": 2,
+      "pooling": "mean",
+      "classifier_hidden": null,
+      "dropout": 0.1,
+      "norm": "batch",
+      "norm_groups": null,
+      "norm_subbands": null,
+      "activation": "relu"
+     }
+    },
+    "subspectral_norm": {
+     "model.norm": "subspectral",
+     "model.norm_subbands": 4
+    }
+   }
+  },
+  {
+   "name": "training",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "speed": {
+     "fit.augment": [
+      {
+       "name": "speed",
+       "factors": [
+        0.9,
+        1.0,
+        1.1
+       ]
+      }
+     ]
+    },
+    "specaugment": {
+     "fit.augment": [
+      {
+       "name": "mask",
+       "row_masks": 2,
+       "row_mask_width": 5,
+       "col_masks": 2,
+       "col_mask_width": 10
+      }
+     ]
+    },
+    "crop_and_windows": {
+     "fit.crop": 8000,
+     "fit.eval_window": {
+      "window": 8000,
+      "hop": 4000
+     }
+    },
+    "global_normalization": {
+     "features.normalization": "global"
+    },
+    "bf16": {
+     "fit.precision": "bf16"
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

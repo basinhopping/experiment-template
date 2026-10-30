@@ -1,0 +1,168 @@
+{
+ "sweep_id": "check_flow_cluster",
+ "description": "The flow check (TESTING.md): clustering on the uploaded table data/flow/blobs.csv (four planted groups, revealed only after the choice) on three subsamples: k-means and a Gaussian mixture on three seeds, agglomerative clustering and HDBSCAN (the same result for every seed) on one, and the number of clusters around four.",
+ "purpose": "screen",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "flow/blobs.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "re:^f[0-9]+$"
+   ],
+   "exclude": [],
+   "keep": [
+    "truth",
+    "group",
+    "published_split"
+   ],
+   "categorical": "codes",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "flow"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "calinski_harabasz",
+    "davies_bouldin",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 1000,
+   "sample_salt": "flow",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 4,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "seeded_methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "gmm": {
+     "model": {
+      "name": "gmm",
+      "n_components": 4,
+      "covariance_type": "full",
+      "n_init": 2,
+      "max_iter": 200,
+      "reg_covar": 1e-06,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "deterministic_methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1
+   ],
+   "variants": {
+    "ward": {
+     "model": {
+      "name": "agglomerative",
+      "linkage": "ward",
+      "metric": "euclidean",
+      "cut": "n_clusters",
+      "n_clusters": 4,
+      "distance": null,
+      "extra": {}
+     }
+    },
+    "hdbscan": {
+     "model": {
+      "name": "hdbscan",
+      "min_cluster_size": 50,
+      "min_samples": 10,
+      "cluster_selection_epsilon": 0.0,
+      "cluster_selection_method": "eom",
+      "allow_single_cluster": false,
+      "metric": "euclidean",
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "k",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_clusters": [
+     3,
+     5
+    ]
+   }
+  }
+ ]
+}

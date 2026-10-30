@@ -1,0 +1,206 @@
+{
+ "sweep_id": "example_image_cnn",
+ "description": "A two-dimensional CNN on synthetic 12 by 12 images whose four classes are a horizontal or vertical stripe at different places (three blocks, so the last one sees the whole image): pooling, normalization, masks, mixup, noise, input normalization and the refit on training plus validation rows, chosen by balanced accuracy, with the shuffled-label control.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "images",
+   "n_rows": 600,
+   "n_features": 12,
+   "n_groups": 4,
+   "noise": 0.5,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2",
+    "c3"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [],
+  "features": {
+   "name": "image",
+   "normalization": "none",
+   "group_column": null
+  },
+  "model": {
+   "name": "cnn2d",
+   "channels": [
+    16,
+    32,
+    64
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_rows": 2,
+   "pool_cols": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.1,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 30,
+   "batch_size": 32,
+   "eval_batch_size": 128,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "network",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "max_pooling": {
+     "model.pooling": "max"
+    },
+    "stats_pooling": {
+     "model.pooling": "stats"
+    },
+    "group_norm": {
+     "model.norm": "group",
+     "model.norm_groups": 4
+    },
+    "no_norm": {
+     "model.norm": "none"
+    },
+    "two_convs": {
+     "model.convs_per_block": 2
+    },
+    "hidden_layer": {
+     "model.classifier_hidden": 64
+    }
+   }
+  },
+  {
+   "name": "training",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "masks": {
+     "fit.augment": [
+      {
+       "name": "mask",
+       "row_masks": 1,
+       "row_mask_width": 2,
+       "col_masks": 1,
+       "col_mask_width": 2
+      }
+     ]
+    },
+    "mixup": {
+     "fit.augment": [
+      {
+       "name": "mixup",
+       "alpha": 0.2
+      }
+     ]
+    },
+    "noise": {
+     "fit.augment": [
+      {
+       "name": "noise",
+       "sd": 0.2
+      }
+     ]
+    },
+    "item_normalization": {
+     "features.normalization": "item"
+    },
+    "global_normalization": {
+     "features.normalization": "global"
+    },
+    "refit_train_and_val": {
+     "fit.refit": "train_and_val"
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

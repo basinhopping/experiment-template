@@ -1,0 +1,22 @@
+"""{{name}}: a metric (say in one sentence what it measures and which way is better).
+
+Written by `python -m sweepkit.cli scaffold --kind metric`. A metric is a function of a role's outputs and optional
+row weights (a bootstrap draw's counts; declare weighted=True when it honours them, so the paired bootstrap can use
+it). Declare its tasks, its direction ("max" or "min"), what it reads, and whether it is a label-free criterion.
+The body here is the worst per-class recall of a classification (higher is better). Test it on hand-computed cases.
+docs/EXTENDING.md walks through it.
+"""
+import numpy as np
+
+from sweepkit.metrics.classification import confusion_matrix
+from sweepkit.registry import register_metric
+
+
+@register_metric("{{name}}", tasks=("classification",), direction="max", needs=("y_true", "y_pred"), weighted=True,
+                 label_free=False, description="{{name}} (describe it in a few words)")
+def {{name}}(o, w=None) -> float:
+    cm = confusion_matrix(o.y_true, o.y_pred, len(o.names), w)
+    support = cm.sum(axis=1)
+    if (support == 0).any():
+        raise ValueError("a class has no rows; its recall is undefined")
+    return float((np.diag(cm) / support).min())

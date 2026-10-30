@@ -1,0 +1,128 @@
+{
+ "sweep_id": "example_data_table",
+ "description": "A table file under data/ with numeric and categorical columns (make-example-data writes it): k-means after one-hot encoding the categorical codes, against k-prototypes on the codes themselves.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "synthetic/example_table.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "*"
+   ],
+   "exclude": [],
+   "keep": [
+    "truth",
+    "group"
+   ],
+   "categorical": "codes",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "calinski_harabasz",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "onehot",
+    "drop_first": false
+   },
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 3,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "mixed",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "kprototypes_on_codes": {
+     "prep": [
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ],
+     "model": {
+      "name": "kprototypes",
+      "n_clusters": 3,
+      "gamma": null,
+      "n_init": 4,
+      "max_iter": 100
+     }
+    }
+   }
+  }
+ ]
+}

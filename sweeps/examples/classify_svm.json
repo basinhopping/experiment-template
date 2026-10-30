@@ -1,0 +1,148 @@
+{
+ "sweep_id": "example_classify_svm",
+ "description": "Support vector machines on XOR (two classes no straight line separates) with one stratified holdout: the RBF kernel against the linear SVM, the polynomial and linear kernels, and C and gamma one at a time. Expect the linear boundaries near chance and the RBF kernel near perfect; scores are decision values (probability false).",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "xor",
+   "n_rows": 600,
+   "n_features": 4,
+   "n_groups": 2,
+   "noise": 0.1,
+   "seed": 1
+  },
+  "split": {
+   "name": "holdout",
+   "val_fraction": 0.2,
+   "test_fraction": 0.2,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "roc_auc"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c": 1.0,
+   "gamma": null,
+   "degree": 3,
+   "class_weight": "none",
+   "probability": false,
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "linear_svm": {
+     "model": {
+      "name": "linear_svm",
+      "c": 1.0,
+      "class_weight": "none",
+      "max_iter": 5000,
+      "extra": {}
+     }
+    },
+    "poly_kernel": {
+     "model.kernel": "poly"
+    },
+    "linear_kernel": {
+     "model.kernel": "linear"
+    }
+   }
+  },
+  {
+   "name": "size",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.c": [
+     0.1,
+     10.0
+    ],
+    "model.gamma": [
+     0.1,
+     1.0
+    ]
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

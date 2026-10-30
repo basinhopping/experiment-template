@@ -1,0 +1,139 @@
+{
+ "sweep_id": "example_data_anndata",
+ "description": "A single-cell AnnData file (.h5ad, the singlecell profile): data/synthetic/example_cells.h5ad, 600 cells of 4 planted types by 200 genes, which make-example-data writes when anndata is installed. Total-count normalization, log1p, 100 highly variable genes and 10 principal components, then k-means with the number of clusters around the planted four, chosen by silhouette; the cell types (obs column truth) are revealed only after the choice.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "anndata",
+   "path": "synthetic/example_cells.h5ad",
+   "layer": null,
+   "keep": [
+    "truth"
+   ],
+   "var_filter": null
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "calinski_harabasz",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 500,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "transform",
+    "method": "total_count",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": 10000.0,
+    "n_quantiles": null,
+    "output": null
+   },
+   {
+    "name": "transform",
+    "method": "log1p",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": null,
+    "n_quantiles": null,
+    "output": null
+   },
+   {
+    "name": "select_features",
+    "method": "highly_variable",
+    "n": 100,
+    "threshold": null,
+    "n_bins": 20
+   },
+   {
+    "name": "reduce",
+    "method": {
+     "name": "pca",
+     "n_components": 10,
+     "solver": "full",
+     "whiten": false,
+     "batch_size": null,
+     "extra": {}
+    }
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 4,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "k",
+   "kind": "one_factor_at_a_time",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_clusters": [
+     3,
+     5
+    ]
+   }
+  }
+ ]
+}

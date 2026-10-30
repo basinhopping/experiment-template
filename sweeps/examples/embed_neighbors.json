@@ -1,0 +1,207 @@
+{
+ "sweep_id": "example_embed_neighbors",
+ "description": "Neighbour-graph embeddings of planted blobs in 10 dimensions: t-SNE against openTSNE, UMAP, PaCMAP, TriMap and PHATE, chosen by trustworthiness; the pictures are for looking, not for measuring distances. Every method but t-SNE needs the unsupervised or extras profile.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "blobs",
+   "n_rows": 600,
+   "n_features": 10,
+   "n_groups": 4,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "embedding",
+   "criteria": [
+    "trustworthiness",
+    "continuity",
+    "knn_preservation"
+   ],
+   "select": "trustworthiness",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "n_neighbors": 10,
+   "reference": "truth",
+   "reveal_metrics": [
+    "knn_label_agreement",
+    "reference_silhouette"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "tsne",
+   "n_components": 2,
+   "perplexity": 30.0,
+   "early_exaggeration": 12.0,
+   "learning_rate": null,
+   "max_iter": 500,
+   "metric": "euclidean",
+   "init": "pca",
+   "method": "barnes_hut",
+   "angle": 0.5,
+   "extra": {}
+  },
+  "fit": {
+   "name": "embedder",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "opentsne": {
+     "model": {
+      "name": "opentsne",
+      "n_components": 2,
+      "perplexity": 30.0,
+      "learning_rate": null,
+      "early_exaggeration": null,
+      "early_exaggeration_iter": 250,
+      "n_iter": 500,
+      "exaggeration": null,
+      "dof": 1.0,
+      "initialization": "pca",
+      "metric": "euclidean",
+      "neighbors": "auto",
+      "negative_gradient_method": "auto",
+      "transform_perplexity": 5.0,
+      "transform_n_iter": 250,
+      "extra": {}
+     }
+    },
+    "umap": {
+     "model": {
+      "name": "umap",
+      "n_components": 2,
+      "n_neighbors": 15,
+      "min_dist": 0.1,
+      "spread": 1.0,
+      "metric": "euclidean",
+      "n_epochs": null,
+      "learning_rate": 1.0,
+      "init": "spectral",
+      "set_op_mix_ratio": 1.0,
+      "local_connectivity": 1.0,
+      "repulsion_strength": 1.0,
+      "negative_sample_rate": 5,
+      "densmap": false,
+      "gpu_build_algo": "brute_force_knn",
+      "extra": {}
+     }
+    },
+    "pacmap": {
+     "model": {
+      "name": "pacmap",
+      "n_components": 2,
+      "n_neighbors": 10,
+      "mn_ratio": 0.5,
+      "fp_ratio": 2.0,
+      "distance": "euclidean",
+      "lr": 1.0,
+      "num_iters": 450,
+      "apply_pca": true,
+      "knn_backend": "faiss",
+      "extra": {}
+     }
+    },
+    "trimap": {
+     "model": {
+      "name": "trimap",
+      "n_components": 2,
+      "n_inliers": 12,
+      "n_outliers": 4,
+      "n_random": 3,
+      "distance": "euclidean",
+      "lr": 0.1,
+      "n_iters": 400,
+      "apply_pca": true,
+      "opt_method": "dbd",
+      "init": "pca",
+      "knn_backend": "auto",
+      "extra": {}
+     }
+    },
+    "phate": {
+     "model": {
+      "name": "phate",
+      "n_components": 2,
+      "knn": 5,
+      "decay": 40.0,
+      "n_landmark": null,
+      "t": null,
+      "gamma": 1.0,
+      "n_pca": null,
+      "mds_solver": "sgd",
+      "mds": "metric",
+      "knn_dist": "euclidean",
+      "mds_dist": "euclidean",
+      "knn_max": null,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "perplexity",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.perplexity": [
+     10.0,
+     50.0
+    ]
+   }
+  }
+ ]
+}

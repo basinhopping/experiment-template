@@ -1,0 +1,130 @@
+{
+ "sweep_id": "example_data_graph",
+ "description": "A graph read from two tables, one row per node (its ID, features and class) and one row per edge (source and target node IDs, listed in both directions), as make-example-data writes them under data/synthetic/example_graph/: a graph convolutional network on its nodes, with the shuffled-label control.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "graph",
+   "nodes": "synthetic/example_graph/nodes.csv",
+   "edges": "synthetic/example_graph/edges.csv",
+   "row_id": "row_id",
+   "features": [
+    "*"
+   ],
+   "keep": [
+    "truth"
+   ],
+   "source": "source",
+   "target": "target",
+   "undirected": false
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "gcn",
+   "hidden": [
+    16
+   ],
+   "normalize": "symmetric",
+   "self_loops": true,
+   "activation": "relu",
+   "input_dropout": 0.5,
+   "dropout": 0.5,
+   "classifier_hidden": null
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 200,
+   "batch_size": 1024,
+   "eval_batch_size": 1024,
+   "lr": 0.01,
+   "weight_decay": 0.0005,
+   "warmup_epochs": 0,
+   "schedule": "constant",
+   "early_stopping_patience": 20,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "none",
+   "control": "none",
+   "eval_train": false,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 5,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

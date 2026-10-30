@@ -1,0 +1,40 @@
+"""{{name}}: a split scheme (say in one sentence which rows play which role in each fold).
+
+Written by `python -m sweepkit.cli scaffold --kind split`. A scheme declares its fold names from its settings alone
+(so sweep files are checked without reading data) and makes the folds from the rows: each Fold names its rows per
+role. Orders come from SHA-256 (sweepkit.splits.base.stable_order and stable_keys), never from a random generator,
+so the folds are the same on every machine. The body here is one supervised fold: fixed fractions of the rows for
+validation and test, the rest for training. docs/EXTENDING.md walks through it.
+"""
+import dataclasses
+
+import numpy as np
+
+from sweepkit.registry import register_split
+from sweepkit.splits.base import SUPERVISED_ROLES, Fold, stable_keys
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    val_fraction: float
+    test_fraction: float
+    salt: str                       # text that fixes the order; change it for another fixed split
+
+
+@register_split("{{name}}", settings={{Name}}Settings, roles=SUPERVISED_ROLES,
+                description="{{name}} (describe it in a few words)")
+class {{Name}}:
+    @staticmethod
+    def fold_names(s) -> tuple:
+        return ("split1",)
+
+    @staticmethod
+    def make(s, table) -> tuple:
+        if not 0 < s.val_fraction < 1 or not 0 < s.test_fraction < 1 or s.val_fraction + s.test_fraction >= 1:
+            raise ValueError("split {{name}}: fractions in (0, 1) that leave training rows")
+        order = np.lexsort((table.ids, stable_keys(table.ids, s.salt)))
+        n = order.size
+        n_val, n_test = int(round(s.val_fraction * n)), int(round(s.test_fraction * n))
+        roles = {"test": np.sort(order[:n_test]), "val": np.sort(order[n_test:n_test + n_val]),
+                 "train": np.sort(order[n_test + n_val:])}
+        return (Fold("split1", roles, "rows in a fixed order by SHA-256", False),)

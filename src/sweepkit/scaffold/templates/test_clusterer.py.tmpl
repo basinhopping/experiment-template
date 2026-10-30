@@ -1,0 +1,25 @@
+"""{{name}} finds planted structure (written by scaffold; set the threshold from runs on the synthetic data)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_planted_blobs(self):
+        load_catalog()
+        from sklearn.metrics import adjusted_rand_score
+
+        from sweepkit.data.synthetic import make
+        from sweepkit.models.base import build_clusterer
+        from sweepkit.registry import MODELS
+        from sweepkit.settings import Selected, validate
+
+        made = make("blobs", 300, 4, 3, 0.8, 1)
+        settings = validate(MODELS.get("{{name}}").settings_class, {"n_clusters": 3, "n_init": 4, "max_iter": 100}, "model")
+        model = build_clusterer(Selected("{{name}}", settings), 0, "cpu")
+        model.fit(made["x"])
+        self.assertGreaterEqual(adjusted_rand_score(made["columns"]["truth"], model.labels()), 0.9)
+
+
+if __name__ == "__main__":
+    unittest.main()

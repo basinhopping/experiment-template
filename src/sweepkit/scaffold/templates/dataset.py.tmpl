@@ -1,0 +1,57 @@
+"""{{name}}: a dataset (say in one sentence what the rows are and where the files come from).
+
+Written by `python -m sweepkit.cli scaffold --kind dataset`. A dataset turns its settings into a Data object: the row
+table (row IDs and the per-row columns kept as text: targets, groups, reference labels), the inputs (x for tables, or
+items or a graph), the feature names, the categorical columns, and a fingerprint of the files read (SHA-256), which
+every run records. Paths in settings are relative to data/ (sweepkit.paths.data_path refuses anything else). The body
+here reads a NumPy .npz file with arrays x (rows by columns), row_ids, and one array per kept column.
+
+EXAMPLE_FILE and write_example give the example sweep a file to read on any machine: make-example-data (which smoke-all
+runs first) writes it under data/ when it is missing. Point the example at a real file and delete both once the
+dataset reads real data. docs/EXTENDING.md walks through it.
+"""
+import dataclasses
+
+import numpy as np
+
+from sweepkit import paths
+from sweepkit.data.base import Data, Dataset, RowTable
+from sweepkit.datasets.table import file_fingerprint
+from sweepkit.registry import register_dataset
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    path: str                       # the .npz file, relative to data/
+    keep: tuple[str, ...]           # arrays of the file kept as per-row text columns (targets, groups, labels)
+
+
+@register_dataset("{{name}}", settings={{Name}}Settings, kinds=("tabular",), profile="core", packages=(),
+                  description="{{name}} (describe it in a few words)", example="{{example}}")
+class {{Name}}(Dataset):
+    EXAMPLE_FILE = "synthetic/{{name}}_example.npz"
+
+    @staticmethod
+    def write_example(path) -> None:
+        """Demonstration rows for the example sweep: three planted blobs (sweepkit.data.synthetic)."""
+        from sweepkit.data.synthetic import make
+
+        made = make("blobs", 300, 4, 3, 1.0, 1)
+        np.savez(path, x=made["x"], row_ids=np.array([f"r{i:04d}" for i in range(300)]),
+                 truth=made["columns"]["truth"])
+
+    @staticmethod
+    def check_job(job) -> None:
+        paths.data_path(job.data.path)
+
+    def load(self, s) -> Data:
+        path = paths.data_path(s.path)
+        if not path.is_file():
+            raise FileNotFoundError(f"data {{name}}: {path} does not exist (paths are relative to data/)")
+        with np.load(path, allow_pickle=False) as arrays:
+            x = np.asarray(arrays["x"], dtype=np.float32)
+            ids = np.asarray(arrays["row_ids"]).astype(str)
+            kept = {name: np.asarray(arrays[name]).astype(str) for name in s.keep}
+        names = tuple(f"x{j}" for j in range(x.shape[1]))
+        return Data("tabular", RowTable(ids, kept), x=x, feature_names=names,
+                    fingerprint={"path": s.path, **file_fingerprint(path)})

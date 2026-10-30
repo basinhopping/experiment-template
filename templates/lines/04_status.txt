@@ -1,0 +1,5 @@
+# 4 of 6: how the round is going (node, any time)
+# shell: bash on the node
+# expect: the tmux sessions of {{project}}, the chain's last lines, the queue counts and each sweep's ranking so far
+# stop if: "ALERT SWAP_FAILED", "CHAIN STOPPED", or many failed runs: stop here and paste the output
+cd ~/{{project}} && mkdir -p logs/{{round}} && { date -u; tmux ls 2>/dev/null; if [ -f logs/{{round}}/chain.txt ]; then tail -5 logs/{{round}}/chain.txt; else echo "no chain log yet: logs/{{round}}/chain.txt"; fi; for s in {{sweep_ids}}; do env ENVIRONMENT={{environment}} bash node/run.sh status --sweep "$s" --top 5 --since all 2>&1 | head -14; done; nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv,noheader; df -h ~ | tail -1; } 2>&1 | tee -a logs/{{round}}/04_status.txt

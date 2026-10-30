@@ -1,0 +1,6 @@
+# rapids-singlecell: the single-cell workflow on the GPU, added to the rapids environment
+# (setup_env.sh rapids rapids rapids-singlecell). Python 3.12 to 3.14.
+--extra-index-url https://pypi.nvidia.com
+rapids-singlecell-cu13[rapids]==0.18.1
+scanpy==1.12.4
+anndata==0.13.4

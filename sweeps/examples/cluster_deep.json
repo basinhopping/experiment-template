@@ -1,0 +1,190 @@
+{
+ "sweep_id": "example_cluster_deep",
+ "description": "Deep clustering on planted blobs: k-means on an autoencoder's codes against Deep Embedded Clustering (DEC), and k-means after an autoencoder as a preparation step, with plain k-means on the scaled columns as the baseline; chosen by silhouette on subsamples, the planted groups revealed only after the choice.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "blobs",
+   "n_rows": 600,
+   "n_features": 10,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "calinski_harabasz",
+    "davies_bouldin",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "autoencoder_kmeans",
+   "hidden": [
+    32
+   ],
+   "latent_dim": 3,
+   "activation": "relu",
+   "dropout": 0.0,
+   "epochs": 50,
+   "batch_size": 32,
+   "lr": 0.003,
+   "weight_decay": 0.0001,
+   "n_clusters": 3,
+   "n_init": 4
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "dec": {
+     "model": {
+      "name": "dec",
+      "hidden": [
+       32
+      ],
+      "latent_dim": 3,
+      "activation": "relu",
+      "dropout": 0.0,
+      "epochs": 50,
+      "batch_size": 32,
+      "lr": 0.003,
+      "weight_decay": 0.0001,
+      "n_clusters": 3,
+      "n_init": 4,
+      "alpha": 1.0,
+      "refine_epochs": 30,
+      "refine_lr": 0.001,
+      "update_interval": 5,
+      "tol": 0.001
+     }
+    },
+    "autoencoder_then_kmeans": {
+     "prep": [
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      },
+      {
+       "name": "reduce",
+       "method": {
+        "name": "autoencoder",
+        "hidden": [
+         32
+        ],
+        "latent_dim": 3,
+        "activation": "relu",
+        "dropout": 0.0,
+        "epochs": 50,
+        "batch_size": 32,
+        "lr": 0.003,
+        "weight_decay": 0.0001
+       }
+      }
+     ],
+     "model": {
+      "name": "kmeans",
+      "n_clusters": 3,
+      "init": "k-means++",
+      "n_init": 4,
+      "max_iter": 300,
+      "tol": 0.0001,
+      "extra": {}
+     }
+    },
+    "kmeans_baseline": {
+     "model": {
+      "name": "kmeans",
+      "n_clusters": 3,
+      "init": "k-means++",
+      "n_init": 4,
+      "max_iter": 300,
+      "tol": 0.0001,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "latent",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.latent_dim": [
+     2,
+     5
+    ]
+   }
+  }
+ ]
+}

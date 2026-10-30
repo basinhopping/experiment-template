@@ -1,0 +1,127 @@
+{
+ "sweep_id": "example_classify_knn",
+ "description": "k-nearest neighbours on four planted classes with group k-fold: the five values of the column group are dealt into folds whole, so no group is in two roles (as subjects, patients or sites would be). The number of neighbours, distance weighting and the metric vary one at a time.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3",
+  "fold4",
+  "fold5"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "classification",
+   "n_rows": 600,
+   "n_features": 6,
+   "n_groups": 4,
+   "noise": 1.5,
+   "seed": 2
+  },
+  "split": {
+   "name": "group_kfold",
+   "group": "group",
+   "k": 5,
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2",
+    "c3"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "mcc"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "knn",
+   "n_neighbors": 15,
+   "weights": "uniform",
+   "metric": "euclidean",
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "neighbours",
+   "kind": "one_factor_at_a_time",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_neighbors": [
+     1,
+     5,
+     25
+    ],
+    "model.weights": [
+     "distance"
+    ],
+    "model.metric": [
+     "manhattan",
+     "cosine"
+    ]
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

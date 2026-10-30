@@ -1,0 +1,189 @@
+{
+ "sweep_id": "example_regress_linear",
+ "description": "Regression on a linear target with half the columns informative, 5-fold cross-validation: ordinary least squares against ridge, lasso and elastic net, then k-nearest neighbours, a support vector regressor, a random forest and histogram boosting on the same folds. Lasso should find the informative half; the shuffled-label control should give an R2 near or below zero.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3",
+  "fold4",
+  "fold5"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "regression_linear",
+   "n_rows": 500,
+   "n_features": 10,
+   "n_groups": 1,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 5,
+   "stratify": null,
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "regression",
+   "target": "target",
+   "metrics": [
+    "rmse",
+    "mse",
+    "mae",
+    "median_ae",
+    "max_error",
+    "r2",
+    "pearson",
+    "spearman",
+    "ccc"
+   ],
+   "select": "rmse",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "linear",
+   "penalty": "none",
+   "alpha": 0.0,
+   "l1_ratio": null,
+   "fit_intercept": true,
+   "max_iter": 5000,
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "penalties",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "ridge": {
+     "model.penalty": "ridge",
+     "model.alpha": 1.0
+    },
+    "lasso": {
+     "model.penalty": "lasso",
+     "model.alpha": 0.1
+    },
+    "elastic_net": {
+     "model.penalty": "elastic_net",
+     "model.alpha": 0.1,
+     "model.l1_ratio": 0.5
+    }
+   }
+  },
+  {
+   "name": "other_models",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "knn": {
+     "model": {
+      "name": "knn",
+      "n_neighbors": 15,
+      "weights": "uniform",
+      "metric": "euclidean",
+      "extra": {}
+     }
+    },
+    "svr": {
+     "model": {
+      "name": "svm",
+      "kernel": "linear",
+      "c": 1.0,
+      "gamma": null,
+      "degree": 3,
+      "class_weight": "none",
+      "probability": false,
+      "extra": {}
+     }
+    },
+    "random_forest": {
+     "model": {
+      "name": "random_forest",
+      "n_estimators": 200,
+      "max_depth": null,
+      "min_samples_leaf": 1,
+      "max_features": 0.5,
+      "bootstrap": true,
+      "class_weight": "none",
+      "n_jobs": 1,
+      "extra": {}
+     }
+    },
+    "hist_gradient_boosting": {
+     "model": {
+      "name": "hist_gradient_boosting",
+      "learning_rate": 0.1,
+      "max_iter": 100,
+      "max_leaf_nodes": 31,
+      "max_depth": null,
+      "min_samples_leaf": 20,
+      "l2_regularization": 0.0,
+      "early_stopping": false,
+      "class_weight": "none",
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

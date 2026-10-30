@@ -1,0 +1,26 @@
+# rapids: cuML and cuDF on an NVIDIA GPU, Linux only, in its own environment (setup_env.sh rapids rapids).
+# cuML, cuDF and cuGraph 26.10 need numba below 0.65, and numba 0.64 needs numpy 2.4 or older, so this environment
+# pins numpy 2.4.6 where core pins 2.5.3 (pin check C1). cuDF needs pandas 3.0.x (C2). scikit-learn, umap-learn and
+# hdbscan sit at the top of cuml.accel's tested range (R6).
+--extra-index-url https://pypi.nvidia.com
+cuml-cu13==26.10.0
+cudf-cu13==26.10.2
+# cuGraph: Leiden and Louvain on the GPU (models/cluster/graph.py); 26.10.0 on PyPI, released 2026-10-08
+cugraph-cu13==26.10.0
+numpy==2.4.6
+numba==0.64.0
+llvmlite==0.46.0
+scipy==1.18.1
+pandas==3.0.5
+scikit-learn==1.9.1
+umap-learn==0.5.12
+pynndescent==0.6.0
+hdbscan==0.8.44
+matplotlib==3.11.2
+networkx==3.7
+joblib==1.6.0
+threadpoolctl==3.7.0
+pyarrow==26.0.0
+h5py==3.16.0
+openpyxl==3.1.5
+psutil==7.2.2

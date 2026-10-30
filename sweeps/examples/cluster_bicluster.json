@@ -1,0 +1,120 @@
+{
+ "sweep_id": "example_cluster_bicluster",
+ "description": "Rows and columns grouped at once on planted biclusters: spectral biclustering against spectral co-clustering, on columns scaled to [0, 1], chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "biclusters",
+   "n_rows": 300,
+   "n_features": 30,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": null,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "minmax",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "spectral_biclustering",
+   "n_clusters": 3,
+   "method": "bistochastic",
+   "n_components": 6,
+   "n_best": 3,
+   "n_init": 10,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "coclustering": {
+     "model": {
+      "name": "spectral_coclustering",
+      "n_clusters": 3,
+      "n_init": 10,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.method": [
+     "scale",
+     "log"
+    ]
+   }
+  }
+ ]
+}

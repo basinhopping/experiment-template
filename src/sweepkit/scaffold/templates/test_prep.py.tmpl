@@ -1,0 +1,31 @@
+"""{{name}} does what its name says, and learns from the fit rows only (written by scaffold)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_known_answer_and_fit_rows_only(self):
+        load_catalog()
+        import numpy as np
+
+        from sweepkit.data.base import RowTable
+        from sweepkit.prep.base import PrepContext, run_prep
+        from sweepkit.registry import PREP
+        from sweepkit.settings import validate
+
+        x = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0], [4.0, 40.0], [5.0, 50.0], [100.0, -1000.0]])
+        table = RowTable(np.array(["a", "b", "c", "d", "e", "f"]), {})
+        context = PrepContext(table=table, feature_names=("u", "v"), categorical={}, seed=0, device="cpu")
+        step = ("{{name}}", validate(PREP.get("{{name}}").settings_class, {"quantile": 0.25}, "prep"))
+        positions = {"fit": np.arange(5), "eval": np.array([5])}
+        out, _, _, _, records = run_prep((step,), {"fit": x[:5], "eval": x[5:]}, positions, "fit", context,
+                                         lambda m: None)
+        # the quartiles of 1..5 are 2 and 4 (and of 10..50, 20 and 40): values outside are clipped to them
+        self.assertTrue(np.allclose(out["fit"], [[2, 20], [2, 20], [3, 30], [4, 40], [4, 40]]))
+        # the held-out row is clipped to the bounds learned without it
+        self.assertTrue(np.allclose(out["eval"], [[4, 20]]))
+
+
+if __name__ == "__main__":
+    unittest.main()

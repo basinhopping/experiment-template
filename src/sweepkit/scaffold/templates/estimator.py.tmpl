@@ -1,0 +1,30 @@
+"""{{name}}: a supervised model (say in one sentence what it is and where it comes from).
+
+Written by `python -m sweepkit.cli scaffold --kind estimator`. An estimator is a build function registered with
+register_estimator: it returns an object with fit and predict, and predict_proba or decision_function for class
+scores; the estimator family's runner does the rest. Change the settings class and the build function (the body here
+builds scikit-learn's nearest-centroid classifier, so the scaffold runs as written); pass every library parameter
+explicitly and an `extra` dictionary for the rest. docs/EXTENDING.md walks through it.
+"""
+import dataclasses
+from typing import Literal
+
+from sweepkit.models.base import merged_kwargs
+from sweepkit.models.estimators import register_estimator
+from sweepkit.settings import Scalar
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    metric: Literal["euclidean", "manhattan"]
+    shrink_threshold: float | None
+    extra: dict[str, Scalar]
+
+
+@register_estimator("{{name}}", {{Name}}Settings, ("classification",), "none", "core", ("sklearn",),
+                    "{{name}} (describe it in a few words)", "{{example}}")
+def build(s: {{Name}}Settings, task: str, seed: int, device: str):
+    from sklearn.neighbors import NearestCentroid
+
+    return NearestCentroid(**merged_kwargs({"metric": s.metric, "shrink_threshold": s.shrink_threshold}, s.extra,
+                                           "{{name}}"))

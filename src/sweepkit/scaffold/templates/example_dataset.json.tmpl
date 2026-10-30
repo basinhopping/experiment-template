@@ -1,0 +1,20 @@
+{
+ "sweep_id": "example_{{example}}",
+ "description": "k-means on a file read by the {{name}} dataset: data/synthetic/{{name}}_example.npz, which make-example-data writes from the dataset's write_example (arrays x, row_ids and truth).",
+ "purpose": "learning",
+ "follows": [],
+ "folds": ["all"],
+ "base": {
+  "data": {"name": "{{name}}", "path": "synthetic/{{name}}_example.npz", "keep": ["truth"]},
+  "split": {"name": "all"},
+  "task": {"name": "clustering", "criteria": ["silhouette", "n_clusters"], "select": "silhouette", "sample_rows": null,
+           "sample_salt": "example", "reference": "truth", "reveal_metrics": ["ari"], "criteria_options": {}},
+  "prep": [{"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}],
+  "features": {"name": "none"},
+  "model": {"name": "kmeans", "n_clusters": 3, "init": "k-means++", "n_init": 4, "max_iter": 300, "tol": 0.0001, "extra": {}},
+  "fit": {"name": "clusterer", "device": "cpu", "assign": "fit_rows"}
+ },
+ "stages": [
+  {"name": "base", "kind": "base", "priority": 9, "seeds": [1, 2, 3]}
+ ]
+}

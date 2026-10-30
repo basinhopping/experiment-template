@@ -1,0 +1,124 @@
+{
+ "sweep_id": "example_cluster_mixed",
+ "description": "Rows with numeric and categorical columns: k-prototypes (numeric distance plus weighted category mismatches) against k-medoids on Gower distances, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "mixed",
+   "n_rows": 600,
+   "n_features": 6,
+   "n_groups": 3,
+   "noise": 0.8,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kprototypes",
+   "n_clusters": 3,
+   "gamma": null,
+   "n_init": 4,
+   "max_iter": 100
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "cpu",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "kmedoids_gower": {
+     "model": {
+      "name": "kmedoids",
+      "n_clusters": 3,
+      "metric": "gower",
+      "method": "alternate",
+      "max_iter": 100,
+      "n_init": 2
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_clusters": [
+     2,
+     4
+    ],
+    "model.gamma": [
+     0.5,
+     2.0
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,485 @@
+{
+ "sweep_id": "example_prep_transform",
+ "description": "Transformations of simulated counts before k-means: total-count normalization, log1p, highly variable features and z-scores (the single-cell recipe), against arcsinh, square root, Yeo-Johnson, Box-Cox, log with an offset, centred and additive log-ratios, quantile and rank transforms, other scalings and other ways to choose columns, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "counts",
+   "n_rows": 600,
+   "n_features": 40,
+   "n_groups": 4,
+   "noise": 0.3,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "dbcv",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "transform",
+    "method": "total_count",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": 10000.0,
+    "n_quantiles": null,
+    "output": null
+   },
+   {
+    "name": "transform",
+    "method": "log1p",
+    "columns": [
+     "*"
+    ],
+    "offset": null,
+    "cofactor": null,
+    "pseudocount": null,
+    "reference": null,
+    "target_sum": null,
+    "n_quantiles": null,
+    "output": null
+   },
+   {
+    "name": "select_features",
+    "method": "highly_variable",
+    "n": 20,
+    "threshold": null,
+    "n_bins": 10
+   },
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 4,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "transforms",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "arcsinh": {
+     "prep.1": {
+      "name": "transform",
+      "method": "arcsinh",
+      "columns": [
+       "*"
+      ],
+      "offset": null,
+      "cofactor": 5.0,
+      "pseudocount": null,
+      "reference": null,
+      "target_sum": null,
+      "n_quantiles": null,
+      "output": null
+     }
+    },
+    "sqrt": {
+     "prep.1": {
+      "name": "transform",
+      "method": "sqrt",
+      "columns": [
+       "*"
+      ],
+      "offset": null,
+      "cofactor": null,
+      "pseudocount": null,
+      "reference": null,
+      "target_sum": null,
+      "n_quantiles": null,
+      "output": null
+     }
+    },
+    "yeojohnson": {
+     "prep.1": {
+      "name": "transform",
+      "method": "yeojohnson",
+      "columns": [
+       "*"
+      ],
+      "offset": null,
+      "cofactor": null,
+      "pseudocount": null,
+      "reference": null,
+      "target_sum": null,
+      "n_quantiles": null,
+      "output": null
+     }
+    },
+    "log_offset": {
+     "prep.1": {
+      "name": "transform",
+      "method": "log",
+      "columns": [
+       "*"
+      ],
+      "offset": 1.0,
+      "cofactor": null,
+      "pseudocount": null,
+      "reference": null,
+      "target_sum": null,
+      "n_quantiles": null,
+      "output": null
+     }
+    },
+    "boxcox": {
+     "prep": [
+      {
+       "name": "transform",
+       "method": "total_count",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": 10000.0,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "transform",
+       "method": "log",
+       "columns": [
+        "*"
+       ],
+       "offset": 2.0,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": null,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "transform",
+       "method": "boxcox",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": null,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ]
+    },
+    "clr": {
+     "prep": [
+      {
+       "name": "transform",
+       "method": "clr",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": 1.0,
+       "reference": null,
+       "target_sum": null,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "select_features",
+       "method": "highly_variable",
+       "n": 20,
+       "threshold": null,
+       "n_bins": 10
+      },
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ]
+    },
+    "alr": {
+     "prep": [
+      {
+       "name": "transform",
+       "method": "alr",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": 1.0,
+       "reference": "gene_39",
+       "target_sum": null,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ]
+    },
+    "quantile_normal": {
+     "prep": [
+      {
+       "name": "transform",
+       "method": "total_count",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": 10000.0,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "transform",
+       "method": "quantile",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": null,
+       "n_quantiles": 100,
+       "output": "normal"
+      }
+     ]
+    },
+    "rank": {
+     "prep": [
+      {
+       "name": "transform",
+       "method": "total_count",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": 10000.0,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "transform",
+       "method": "rank",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": null,
+       "n_quantiles": null,
+       "output": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "scaling",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "minmax": {
+     "prep.scale.method": "minmax"
+    },
+    "robust": {
+     "prep.scale.method": "robust"
+    },
+    "maxabs": {
+     "prep.scale.method": "maxabs"
+    },
+    "l2_rows": {
+     "prep.scale.method": "l2_rows"
+    },
+    "per_group": {
+     "prep.scale.per_group": "group"
+    }
+   }
+  },
+  {
+   "name": "columns",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "first_twenty": {
+     "prep": [
+      {
+       "name": "transform",
+       "method": "total_count",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": 10000.0,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "transform",
+       "method": "log1p",
+       "columns": [
+        "*"
+       ],
+       "offset": null,
+       "cofactor": null,
+       "pseudocount": null,
+       "reference": null,
+       "target_sum": null,
+       "n_quantiles": null,
+       "output": null
+      },
+      {
+       "name": "select_columns",
+       "keep": [
+        "re:gene_([0-9]|1[0-9])$"
+       ]
+      },
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ]
+    },
+    "variance_top": {
+     "prep.select_features": {
+      "name": "select_features",
+      "method": "variance_top",
+      "n": 20,
+      "threshold": null,
+      "n_bins": null
+     }
+    },
+    "variance_threshold": {
+     "prep.select_features": {
+      "name": "select_features",
+      "method": "variance_threshold",
+      "n": null,
+      "threshold": 0.1,
+      "n_bins": null
+     }
+    },
+    "correlation": {
+     "prep.select_features": {
+      "name": "select_features",
+      "method": "correlation",
+      "n": null,
+      "threshold": 0.9,
+      "n_bins": null
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,25 @@
+{
+ "sweep_id": "example_{{example}}",
+ "description": "{{name}} on planted outliers, against isolation forest, with two neighbourhood sizes.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": ["sub1", "sub2", "sub3"],
+ "base": {
+  "data": {"name": "synthetic", "generator": "outliers", "n_rows": 600, "n_features": 4, "n_groups": 2, "noise": 0.5, "seed": 1},
+  "split": {"name": "subsamples", "k": 3, "fraction": 0.8, "salt": "example"},
+  "task": {"name": "outlier", "criteria": ["flagged_fraction"], "select": "stability", "sample_rows": null,
+           "sample_salt": "example", "reference": "is_outlier", "reveal_metrics": ["auroc", "outlier_average_precision"],
+           "criteria_options": {}},
+  "prep": [{"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}],
+  "features": {"name": "none"},
+  "model": {"name": "{{name}}", "k": 5, "flag_quantile": 0.95},
+  "fit": {"name": "detector", "device": "cpu", "assign": "fit_rows"}
+ },
+ "stages": [
+  {"name": "base", "kind": "base", "priority": 9, "seeds": [1, 2, 3]},
+  {"name": "against", "kind": "variants", "priority": 8, "seeds": [1, 2, 3],
+   "variants": {"isolation_forest": {"model": {"name": "isolation_forest", "n_estimators": 200, "max_samples": null,
+                                               "max_features": 1.0, "contamination": null, "extra": {}}}}},
+  {"name": "k", "kind": "one_factor_at_a_time", "priority": 7, "seeds": [1, 2, 3], "factors": {"model.k": [10]}}
+ ]
+}

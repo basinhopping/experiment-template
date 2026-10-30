@@ -1,0 +1,83 @@
+{
+ "sweep_id": "example_classify_tpot",
+ "description": "TPOT (the automl profile, its own environment) searching scikit-learn pipelines by genetic programming on two planted classes, with a short budget: 2 generations of 8 pipelines, at most 2 minutes. TPOT does its own internal cross-validation on the training rows; validation and test rows stay outside it.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "classification",
+   "n_rows": 300,
+   "n_features": 6,
+   "n_groups": 2,
+   "noise": 1.0,
+   "seed": 6
+  },
+  "split": {
+   "name": "holdout",
+   "val_fraction": 0.25,
+   "test_fraction": 0.25,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "roc_auc"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "tpot",
+   "generations": 2,
+   "population_size": 8,
+   "max_time_mins": 2.0,
+   "max_eval_time_mins": 0.5,
+   "n_jobs": 1,
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2
+   ]
+  }
+ ]
+}

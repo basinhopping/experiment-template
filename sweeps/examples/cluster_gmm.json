@@ -1,0 +1,130 @@
+{
+ "sweep_id": "example_cluster_gmm",
+ "description": "Gaussian mixtures on stretched blobs: the number of components and the covariance shape chosen by BIC, with a Bayesian mixture that finds its own number of components beside them.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "anisotropic",
+   "n_rows": 600,
+   "n_features": 4,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "bic",
+    "aic",
+    "silhouette",
+    "n_clusters"
+   ],
+   "select": "bic",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "gmm",
+   "n_components": 3,
+   "covariance_type": "full",
+   "n_init": 2,
+   "max_iter": 200,
+   "reg_covar": 1e-06,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "bayesian_gmm": {
+     "model": {
+      "name": "bayesian_gmm",
+      "n_components": 8,
+      "covariance_type": "full",
+      "weight_concentration_prior_type": "dirichlet_process",
+      "weight_concentration_prior": null,
+      "max_iter": 300,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_components": [
+     2,
+     4,
+     5
+    ],
+    "model.covariance_type": [
+     "diag",
+     "spherical"
+    ]
+   }
+  }
+ ]
+}

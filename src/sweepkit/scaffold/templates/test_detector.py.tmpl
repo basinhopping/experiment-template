@@ -1,0 +1,26 @@
+"""{{name}} ranks planted outliers first (written by scaffold; set the threshold from runs on the synthetic data)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_planted_outliers(self):
+        load_catalog()
+        from sklearn.metrics import roc_auc_score
+
+        from sweepkit.data.synthetic import make
+        from sweepkit.models.base import build_detector
+        from sweepkit.registry import MODELS
+        from sweepkit.settings import Selected, validate
+
+        made = make("outliers", 400, 4, 2, 0.5, 1)
+        settings = validate(MODELS.get("{{name}}").settings_class, {"k": 5, "flag_quantile": 0.95}, "model")
+        model = build_detector(Selected("{{name}}", settings), 0, "cpu")
+        model.fit(made["x"])
+        truth = made["columns"]["is_outlier"].astype(int)
+        self.assertGreaterEqual(roc_auc_score(truth, model.score(made["x"])), 0.9)
+
+
+if __name__ == "__main__":
+    unittest.main()

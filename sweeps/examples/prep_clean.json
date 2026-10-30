@@ -1,0 +1,210 @@
+{
+ "sweep_id": "example_prep_clean",
+ "description": "Cleaning steps before k-means on blobs with 5% planted outliers: missing values (median, k-nearest-neighbour or iterative imputation; synthetic data have none, so these steps run but change nothing), duplicate rows, constant columns, outliers clipped or removed by a detector, and a stratified fit subsample, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "outliers",
+   "n_rows": 600,
+   "n_features": 5,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 2
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "dbcv",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "impute",
+    "method": "median",
+    "fill_value": null,
+    "n_neighbors": null,
+    "max_iter": null
+   },
+   {
+    "name": "drop_duplicates",
+    "decimals": 6
+   },
+   {
+    "name": "drop_constant",
+    "min_variance": 0.0,
+    "max_frequency_ratio": null,
+    "min_unique_fraction": null
+   },
+   {
+    "name": "outliers",
+    "method": "clip_quantiles",
+    "low_quantile": 0.01,
+    "high_quantile": 0.99,
+    "n_sd": null,
+    "detector": null
+   },
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 3,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "cleaning",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "impute_knn": {
+     "prep.impute": {
+      "name": "impute",
+      "method": "knn",
+      "fill_value": null,
+      "n_neighbors": 5,
+      "max_iter": null
+     }
+    },
+    "impute_iterative": {
+     "prep.impute": {
+      "name": "impute",
+      "method": "iterative",
+      "fill_value": null,
+      "n_neighbors": null,
+      "max_iter": 10
+     }
+    },
+    "clip_sd": {
+     "prep.outliers": {
+      "name": "outliers",
+      "method": "clip_sd",
+      "low_quantile": null,
+      "high_quantile": null,
+      "n_sd": 3.0,
+      "detector": null
+     }
+    },
+    "remove_by_detector": {
+     "prep.outliers": {
+      "name": "outliers",
+      "method": "remove_by_detector",
+      "low_quantile": null,
+      "high_quantile": null,
+      "n_sd": null,
+      "detector": {
+       "name": "isolation_forest",
+       "n_estimators": 200,
+       "max_samples": null,
+       "max_features": 1.0,
+       "contamination": null,
+       "extra": {}
+      }
+     }
+    },
+    "subsample": {
+     "prep": [
+      {
+       "name": "impute",
+       "method": "median",
+       "fill_value": null,
+       "n_neighbors": null,
+       "max_iter": null
+      },
+      {
+       "name": "subsample",
+       "method": "stratified",
+       "fraction": 0.5,
+       "n_rows": null,
+       "stratify": "group",
+       "salt": "example"
+      },
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "clip",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "prep.outliers.high_quantile": [
+     0.95,
+     1.0
+    ]
+   }
+  }
+ ]
+}

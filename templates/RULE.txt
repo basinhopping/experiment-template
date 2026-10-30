@@ -1,0 +1,27 @@
+RULE_{{round}}.txt: what round {{round}} runs and how its results are read. Project {{project}}.
+Fixed with rule-fix before any result of this round exists; the time and SHA-256 are in the record rule-fix wrote
+(artifacts/rules/{{round}}_<utc>/record.json). It does not change once a file of these runs has been read. Jobs
+still queued from earlier rounds keep running under their own rules.
+
+1. What runs
+   {{what_runs}}
+   (The sweeps by file and sweep ID, what each asks, seeds, folds, priorities, the device, and the code version by
+   tree digest. Say what earlier choice each setting comes from, and that no test or reveal file chose it.)
+
+2. Reading
+   {{reading}}
+   (Which files are read, in which order: validation or label-free files first, with analyze; then select; only then
+   the test or reveal files of the selected configurations, with test-report or reveal-report. Which comparisons
+   are made, as families (the families file given to rule-fix: paired bootstrap, Holm within each family), on which
+   seeds, and what happens to runs not finished at the reading time.)
+
+3. Stop condition
+   {{stop_condition}}
+   (Written before the results: which result is a plain substitution, for example "a configuration that beats the
+   baseline on validation goes to confirmation on five new seeds", and which result changes the plan, for example
+   "if the leak control is above chance by more than its seed spread, stop and check the split".)
+
+4. What this cannot show
+   {{limits}}
+   (What the design of this round leaves open: one dataset, one split, seeds that are not new, settings chosen on
+   validation and therefore optimistic until confirmed, transductive steps, and anything not tested.)

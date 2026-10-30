@@ -1,0 +1,176 @@
+{
+ "sweep_id": "check_flow_estimators",
+ "description": "The flow check (TESTING.md): supervised classification on the uploaded table data/flow/classify.csv with scikit-learn-style estimators on a node round's GPU workers (device auto: XGBoost on the GPU, the others on the CPU), stratified 3-fold cross-validation with the identity check fold, and a shuffled-labels control.",
+ "purpose": "screen",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3",
+  "identity"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "flow/classify.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "re:^f[0-9]+$"
+   ],
+   "exclude": [],
+   "keep": [
+    "truth",
+    "group",
+    "published_split"
+   ],
+   "categorical": "codes",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": "truth",
+   "salt": "flow",
+   "identity_fold": true
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "logistic_regression",
+   "c": 1.0,
+   "l1_ratio": 0.0,
+   "class_weight": "none",
+   "max_iter": 1000,
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "models",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "random_forest": {
+     "model": {
+      "name": "random_forest",
+      "n_estimators": 200,
+      "max_depth": null,
+      "min_samples_leaf": 1,
+      "max_features": 0.5,
+      "bootstrap": true,
+      "class_weight": "none",
+      "n_jobs": 1,
+      "extra": {}
+     }
+    },
+    "hist_gradient_boosting": {
+     "model": {
+      "name": "hist_gradient_boosting",
+      "learning_rate": 0.1,
+      "max_iter": 100,
+      "max_leaf_nodes": 31,
+      "max_depth": null,
+      "min_samples_leaf": 20,
+      "l2_regularization": 0.0,
+      "early_stopping": false,
+      "class_weight": "none",
+      "extra": {}
+     }
+    },
+    "xgboost": {
+     "model": {
+      "name": "xgboost",
+      "n_estimators": 200,
+      "learning_rate": 0.1,
+      "max_depth": 4,
+      "num_leaves": null,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_lambda": 1.0,
+      "n_jobs": 1,
+      "extra": {}
+     }
+    },
+    "knn": {
+     "model": {
+      "name": "knn",
+      "n_neighbors": 15,
+      "weights": "uniform",
+      "metric": "euclidean",
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 5,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

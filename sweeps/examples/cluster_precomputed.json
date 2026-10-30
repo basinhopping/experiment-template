@@ -1,0 +1,142 @@
+{
+ "sweep_id": "example_cluster_precomputed",
+ "description": "Clustering a precomputed distance matrix: data/synthetic/example_distances.csv holds Bray-Curtis distances between 200 rows of counts (one column per row ID), which make-example-data writes. Each subsample's method gets the block of its own rows. k-medoids against average-linkage agglomerative clustering, DBSCAN and HDBSCAN on the same distances, chosen by silhouette on the distances (criteria that need coordinates, such as Calinski-Harabasz, are undefined for distances). No preparation step: one would change the distances.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "synthetic/example_distances.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "*"
+   ],
+   "exclude": [],
+   "keep": [
+    "truth"
+   ],
+   "categorical": "error",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "n_clusters",
+    "noise_fraction"
+   ],
+   "select": "silhouette",
+   "sample_rows": null,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmedoids",
+   "n_clusters": 3,
+   "metric": "precomputed",
+   "method": "alternate",
+   "max_iter": 100,
+   "n_init": 4
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "cpu",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "agglomerative_average": {
+     "model": {
+      "name": "agglomerative",
+      "linkage": "average",
+      "metric": "precomputed",
+      "cut": "n_clusters",
+      "n_clusters": 3,
+      "distance": null,
+      "extra": {}
+     }
+    },
+    "dbscan": {
+     "model": {
+      "name": "dbscan",
+      "eps": 0.35,
+      "min_samples": 5,
+      "metric": "precomputed",
+      "extra": {}
+     }
+    },
+    "hdbscan_sklearn": {
+     "model": {
+      "name": "hdbscan_sklearn",
+      "min_cluster_size": 15,
+      "min_samples": 5,
+      "cluster_selection_epsilon": 0.0,
+      "cluster_selection_method": "eom",
+      "allow_single_cluster": false,
+      "metric": "precomputed",
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "k",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_clusters": [
+     2,
+     4
+    ]
+   }
+  }
+ ]
+}

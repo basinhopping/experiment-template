@@ -1,0 +1,15 @@
+# Every text file is stored and checked out with LF line endings on every system, so the code-tree digest is the same
+# on Windows, a Mac and the node, and the bash scripts run on the node. A Windows checkout that turned LF into CRLF
+# broke both once; START_HERE.md also sets core.autocrlf false before the first checkout.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.npy binary
+*.npz binary
+*.parquet binary
+*.xlsx binary
+*.h5 binary
+*.h5ad binary
+*.gz binary
+*.tar binary
+*.wav binary

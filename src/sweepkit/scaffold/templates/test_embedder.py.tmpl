@@ -1,0 +1,24 @@
+"""{{name}} keeps planted structure (written by scaffold; set the threshold from runs on the synthetic data)."""
+import unittest
+
+from tests.support import load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_low_rank_matrix(self):
+        load_catalog()
+        from sweepkit.data.synthetic import make
+        from sweepkit.models.base import build_embedder
+        from sweepkit.registry import MODELS
+        from sweepkit.settings import Selected, validate
+
+        made = make("low_rank", 300, 10, 3, 0.05, 1)
+        settings = validate(MODELS.get("{{name}}").settings_class, {"n_components": 3}, "model")
+        model = build_embedder(Selected("{{name}}", settings), 0, "cpu")
+        embedding = model.fit_transform(made["x"])
+        self.assertEqual(embedding.shape, (300, 3))
+        self.assertGreaterEqual(model.info()["explained_variance"], 0.95)
+
+
+if __name__ == "__main__":
+    unittest.main()

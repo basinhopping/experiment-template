@@ -1,0 +1,48 @@
+"""{{name}} learns planted classes through the real runner (written by scaffold; set the threshold from runs on the
+synthetic data). Needs torch: without it the tests skip, and they fail where SWEEPKIT_REQUIRE names torch (a machine
+that must run them)."""
+import json
+import unittest
+from pathlib import Path
+
+from tests.support import TempRepo, load_catalog, needs_module
+
+
+@needs_module("torch")
+class Test{{Name}}(unittest.TestCase):
+    def test_planted_classes_through_the_runner(self):
+        load_catalog()
+        from sweepkit.runs.spec import check_job, config_hash, plain, run_id, validate_job
+        from sweepkit.scaffold.additions import example_path
+        from sweepkit.sweep.runner import execute
+
+        base = json.loads(example_path("{{example}}").read_text(encoding="utf-8"))["base"]
+        job = validate_job(base)
+        check_job(job)
+        spec = {"sweep_id": "{{name}}_test", "purpose": "learning", "stage": "base", "label": "base", "overrides": {},
+                "priority": 1, "config_hash": config_hash(job), "run_id": run_id(job, "holdout", 1),
+                "fold": "holdout", "seed": 1, "family": job.family, "settings": plain(job)}
+        with TempRepo() as root:
+            execute(spec, "cpu", lambda message: None, runs_root=Path(root) / "runs")
+            folder = Path(root) / "runs" / spec["run_id"]
+            metrics = json.loads((folder / "metrics_val.json").read_text(encoding="utf-8"))
+        self.assertEqual(metrics["select"]["metric"], "balanced_accuracy")
+        self.assertGreaterEqual(metrics["select"]["value"], 0.8)
+
+    def test_the_network_gives_a_summary_and_outputs(self):
+        load_catalog()
+        import torch
+
+        from sweepkit.registry import MODELS
+        from sweepkit.settings import validate
+
+        entry = MODELS.get("{{name}}")
+        settings = validate(entry.settings_class, {"hidden": [16], "activation": "relu", "dropout": 0.0}, "model")
+        net = entry.target.build(settings, (8,), 3)
+        rows = torch.zeros(5, 8)
+        self.assertEqual(tuple(net.embed(rows, None).shape), (5, net.embedding_dim))
+        self.assertEqual(tuple(net(rows, None).shape), (5, 3))
+
+
+if __name__ == "__main__":
+    unittest.main()

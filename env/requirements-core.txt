@@ -1,0 +1,15 @@
+# core: the template's own code, scikit-learn and SciPy algorithms, the analysis and the data layer.
+# Exact pins (decision 13 of the design); checked together on 2026-10-26 from each release's declared dependencies.
+numpy==2.5.3
+scipy==1.18.1
+pandas==3.0.5
+scikit-learn==1.9.1
+matplotlib==3.11.2
+networkx==3.7
+joblib==1.6.0
+threadpoolctl==3.7.0
+pyarrow==26.0.0
+h5py==3.16.0
+openpyxl==3.1.5
+psutil==7.2.2
+polars==2.1.0

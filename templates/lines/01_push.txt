@@ -1,0 +1,5 @@
+# 1 of 6: send the code to the node (your computer)
+# shell: Command Prompt on Windows; on a Mac or Linux: cd "<the repository folder>" && bash node/pc/push.sh
+# expect: "code archive {{project}}_code_<utc>.tar.gz  sha256 ...", one password prompt, then "Copied to ~/{{project}}_incoming on the node" and "Tree digest of the code sent: {{digest}}"
+# stop if: scp fails, or the tree digest is not {{digest}}: stop here and paste the output
+cd /d "<the repository folder>" && powershell -ExecutionPolicy Bypass -File node\pc\push.ps1

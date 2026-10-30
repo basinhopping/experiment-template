@@ -1,0 +1,5 @@
+# 6 of 6: fetch the results and check every file (your computer)
+# shell: Command Prompt on Windows; a terminal on a Mac or Linux. Paste the line line 05 printed after "paste this on your computer": it is the line below with the folder and the name filled in (on a Mac or Linux: cd "<the repository folder>" && bash node/pc/pull.sh <the name line 5 printed>)
+# expect: "pulled {{project}}_results_<...> : <n> files unpacked into artifacts\ and checked against the node's hashes"
+# stop if: a SHA-256 mismatch or "REFUSING": stop here and paste the output
+cd /d "<the repository folder>" && powershell -ExecutionPolicy Bypass -File node\pc\pull.ps1 <the name line 5 printed>

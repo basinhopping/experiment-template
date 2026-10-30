@@ -1,0 +1,124 @@
+{
+ "sweep_id": "example_cluster_birch",
+ "description": "BIRCH on many planted blobs, with and without a final grouping of its subclusters, against mini-batch k-means, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "blobs",
+   "n_rows": 2000,
+   "n_features": 5,
+   "n_groups": 4,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "calinski_harabasz",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 500,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "birch",
+   "threshold": 0.5,
+   "branching_factor": 50,
+   "n_clusters": 4,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "subclusters": {
+     "model.n_clusters": null
+    },
+    "minibatch_kmeans": {
+     "model": {
+      "name": "minibatch_kmeans",
+      "n_clusters": 4,
+      "batch_size": 256,
+      "n_init": 3,
+      "max_iter": 100,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.threshold": [
+     0.3,
+     0.8
+    ]
+   }
+  }
+ ]
+}

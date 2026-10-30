@@ -1,0 +1,26 @@
+"""{{name}} loads rows, inputs and kept columns from a file under data/ (written by scaffold)."""
+import unittest
+
+from tests.support import TempRepo, load_catalog
+
+
+class Test{{Name}}(unittest.TestCase):
+    def test_loads(self):
+        load_catalog()
+        import numpy as np
+
+        from sweepkit.registry import DATASETS
+        from sweepkit.settings import validate
+
+        with TempRepo() as root:
+            (root / "data").mkdir()
+            np.savez(root / "data" / "t.npz", x=np.arange(12.0).reshape(4, 3), row_ids=np.array(["a", "b", "c", "d"]),
+                     truth=np.array(["p", "q", "p", "q"]))
+            entry = DATASETS.get("{{name}}")
+            data = entry.target().load(validate(entry.settings_class, {"path": "t.npz", "keep": ["truth"]}, "data"))
+            self.assertEqual(data.x.shape, (4, 3))
+            self.assertEqual(data.table.column("truth").tolist(), ["p", "q", "p", "q"])
+
+
+if __name__ == "__main__":
+    unittest.main()

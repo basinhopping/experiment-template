@@ -1,0 +1,143 @@
+{
+ "sweep_id": "check_flow_outliers",
+ "description": "The flow check (TESTING.md): outlier detection on the uploaded table data/flow/outliers.csv (the planted outliers revealed only after the choice) on three subsamples: an isolation forest against an elliptic envelope on three seeds and the local outlier factor (the same result for every seed) on one.",
+ "purpose": "screen",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "table",
+   "path": "flow/outliers.csv",
+   "format": "csv",
+   "sheet_or_key": null,
+   "row_id": "row_id",
+   "features": [
+    "re:^f[0-9]+$"
+   ],
+   "exclude": [],
+   "keep": [
+    "is_outlier",
+    "truth",
+    "group",
+    "published_split"
+   ],
+   "categorical": "codes",
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "flow"
+  },
+  "task": {
+   "name": "outlier",
+   "criteria": [
+    "em_auc",
+    "mv_auc",
+    "flagged_fraction"
+   ],
+   "select": "em_auc",
+   "sample_rows": 500,
+   "sample_salt": "flow",
+   "reference": "is_outlier",
+   "reveal_metrics": [
+    "auroc",
+    "outlier_average_precision",
+    "precision_at_n"
+   ],
+   "criteria_options": {
+    "em_mv_uniform_points": 100000,
+    "em_mv_max_features": 5,
+    "em_mv_feature_draws": 50,
+    "em_t_max": 0.9,
+    "em_t_points": 10000,
+    "mv_alpha_min": 0.9,
+    "mv_alpha_max": 0.999,
+    "mv_alpha_points": 991
+   }
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "isolation_forest",
+   "n_estimators": 200,
+   "max_samples": null,
+   "max_features": 1.0,
+   "contamination": null,
+   "extra": {}
+  },
+  "fit": {
+   "name": "detector",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "seeded_methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "elliptic_envelope": {
+     "model": {
+      "name": "elliptic_envelope",
+      "contamination": 0.05,
+      "support_fraction": null,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "deterministic_methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1
+   ],
+   "variants": {
+    "lof": {
+     "model": {
+      "name": "lof",
+      "n_neighbors": 20,
+      "metric": "euclidean",
+      "contamination": null,
+      "extra": {}
+     }
+    }
+   }
+  }
+ ]
+}

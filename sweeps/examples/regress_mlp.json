@@ -1,0 +1,158 @@
+{
+ "sweep_id": "example_regress_mlp",
+ "description": "A multilayer perceptron for regression on Friedman's first function (a known nonlinear target with noise): the loss on standardized targets (mse, l1, ccc), depth, mixup and the refit on training plus validation rows, chosen by R squared, with the shuffled-target control.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "regression_nonlinear",
+   "n_rows": 900,
+   "n_features": 10,
+   "n_groups": 1,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 3,
+   "stratify": null,
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "regression",
+   "target": "target",
+   "metrics": [
+    "r2",
+    "rmse",
+    "mae",
+    "ccc"
+   ],
+   "select": "r2",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "mlp",
+   "hidden": [
+    64,
+    64
+   ],
+   "norm": "none",
+   "activation": "relu",
+   "dropout": 0.0
+  },
+  "fit": {
+   "name": "torch",
+   "device": "auto",
+   "epochs": 60,
+   "batch_size": 32,
+   "eval_batch_size": 128,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 15,
+   "precision": "fp32",
+   "class_balance": "none",
+   "label_smoothing": 0.0,
+   "regression_loss": "mse",
+   "control": "none",
+   "eval_train": true,
+   "crop": null,
+   "eval_window": null,
+   "augment": [],
+   "aux": null,
+   "contrastive": null,
+   "external": [],
+   "max_batches_per_epoch": null,
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "training",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "l1": {
+     "fit.regression_loss": "l1"
+    },
+    "ccc": {
+     "fit.regression_loss": "ccc"
+    },
+    "batch_norm": {
+     "model.norm": "batch"
+    },
+    "deep": {
+     "model.hidden": [
+      128,
+      128,
+      128
+     ]
+    },
+    "mixup": {
+     "fit.augment": [
+      {
+       "name": "mixup",
+       "alpha": 0.2
+      }
+     ]
+    },
+    "refit_train_and_val": {
+     "fit.refit": "train_and_val"
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

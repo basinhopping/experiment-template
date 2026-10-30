@@ -1,0 +1,14 @@
+# extras: packages under copyleft or non-commercial licences, on request only (decision 3; docs/PROFILES.md has the
+# licence table). The template's own permissive versions cover k-medoids, Leiden (networkx), Gower, Markov
+# clustering, fuzzy c-means, SOM, PCoA, diffusion maps and DBCV without any of these.
+# Some build from source: annoy (for trimap) on every platform, inmoose everywhere, harmonypy on Windows (pin check R7).
+genieclust==1.3.0
+lumbermark==0.9.1
+leidenalg==0.12.0
+igraph==1.0.0
+kmedoids==0.5.5
+flowsom==0.2.2
+harmonypy==2.1.0
+inmoose==0.9.1
+phate==2.0.0
+trimap==1.2.0

@@ -1,0 +1,22 @@
+{
+ "sweep_id": "example_{{example}}",
+ "description": "The corners of a grid of k-means settings on planted blobs, made by the {{name}} stage kind.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": ["sub1", "sub2"],
+ "base": {
+  "data": {"name": "synthetic", "generator": "blobs", "n_rows": 400, "n_features": 4, "n_groups": 3, "noise": 1.0, "seed": 1},
+  "split": {"name": "subsamples", "k": 2, "fraction": 0.8, "salt": "example"},
+  "task": {"name": "clustering", "criteria": ["silhouette", "n_clusters"], "select": "silhouette", "sample_rows": 300,
+           "sample_salt": "example", "reference": "truth", "reveal_metrics": ["ari"], "criteria_options": {}},
+  "prep": [{"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}],
+  "features": {"name": "none"},
+  "model": {"name": "kmeans", "n_clusters": 3, "init": "k-means++", "n_init": 2, "max_iter": 300, "tol": 0.0001, "extra": {}},
+  "fit": {"name": "clusterer", "device": "cpu", "assign": "fit_rows"}
+ },
+ "stages": [
+  {"name": "base", "kind": "base", "priority": 9, "seeds": [1, 2, 3]},
+  {"name": "corners", "kind": "{{name}}", "priority": 8, "seeds": [1, 2, 3],
+   "factors": {"model.n_clusters": [2, 3, 4], "model.n_init": [1, 2, 4]}}
+ ]
+}

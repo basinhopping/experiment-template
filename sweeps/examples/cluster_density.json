@@ -1,0 +1,134 @@
+{
+ "sweep_id": "example_cluster_density",
+ "description": "Density clustering of two moons: DBSCAN's neighbourhood radius, against OPTICS and mean shift, chosen by DBCV.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "moons",
+   "n_rows": 600,
+   "n_features": 2,
+   "n_groups": 2,
+   "noise": 0.06,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "dbcv",
+    "silhouette",
+    "n_clusters",
+    "noise_fraction"
+   ],
+   "select": "dbcv",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "dbscan",
+   "eps": 0.3,
+   "min_samples": 5,
+   "metric": "euclidean",
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "optics": {
+     "model": {
+      "name": "optics",
+      "min_samples": 10,
+      "max_eps": null,
+      "cluster_method": "xi",
+      "xi": 0.05,
+      "eps": null,
+      "metric": "euclidean",
+      "extra": {}
+     }
+    },
+    "mean_shift": {
+     "model": {
+      "name": "mean_shift",
+      "bandwidth": null,
+      "bin_seeding": true,
+      "cluster_all": true,
+      "max_iter": 300,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.eps": [
+     0.2,
+     0.4
+    ]
+   }
+  }
+ ]
+}

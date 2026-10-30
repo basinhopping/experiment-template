@@ -1,0 +1,5 @@
+# torch: the torch family (neural networks), on Python 3.12 or 3.13.
+# From PyPI this is the CUDA 13 build on Linux, the CPU and MPS build on a Mac, and a CPU-only build on Windows.
+# For an NVIDIA GPU on Windows, or a GPU older than Turing on Linux, env/setup.ps1 and env/setup.sh take a torch index
+# (cu130 or cu126) that replaces PyPI for torch alone (docs/PROFILES.md).
+torch==2.14.1

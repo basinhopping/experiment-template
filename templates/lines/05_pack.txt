@@ -1,0 +1,5 @@
+# 5 of 6: pack the round's results after the stop time (node)
+# shell: bash on the node
+# expect: "packed <n> entries from <m> paths: {{project}}_results_<...>", then "paste this on your computer" and the line to paste there (line 06, with the folder and the name filled in)
+# stop if: "workers still running", "REFUSING: unfinished folders" (a job still running: wait, then run this again) or any other error: stop here and paste the output
+cd ~/{{project}} && mkdir -p logs/{{round}} && { if tmux ls -F '#{session_name}' 2>/dev/null | grep -q -E '^{{project}}_(gpu|cpu)'; then echo "workers still running: wait for the stop time, then run this again"; else bash node/pack.sh {{pack_paths}}; fi; } 2>&1 | tee -a logs/{{round}}/05_pack.txt

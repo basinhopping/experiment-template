@@ -1,0 +1,156 @@
+{
+ "sweep_id": "example_outlier_detectors",
+ "description": "Outlier detection on blobs with 5% planted outliers: isolation forest against local outlier factor, one-class SVM, elliptic envelope and HDBSCAN's GLOSH scores, chosen by the excess-mass criterion with Goix's (2016) settings; the planted outliers are read only after the choice.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "outliers",
+   "n_rows": 600,
+   "n_features": 4,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "outlier",
+   "criteria": [
+    "em_auc",
+    "mv_auc",
+    "flagged_fraction"
+   ],
+   "select": "em_auc",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "is_outlier",
+   "reveal_metrics": [
+    "auroc",
+    "outlier_average_precision",
+    "precision_at_n"
+   ],
+   "criteria_options": {
+    "em_mv_uniform_points": 100000,
+    "em_mv_max_features": 5,
+    "em_mv_feature_draws": 50,
+    "em_t_max": 0.9,
+    "em_t_points": 10000,
+    "mv_alpha_min": 0.9,
+    "mv_alpha_max": 0.999,
+    "mv_alpha_points": 991
+   }
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "isolation_forest",
+   "n_estimators": 200,
+   "max_samples": null,
+   "max_features": 1.0,
+   "contamination": null,
+   "extra": {}
+  },
+  "fit": {
+   "name": "detector",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "lof": {
+     "model": {
+      "name": "lof",
+      "n_neighbors": 20,
+      "metric": "euclidean",
+      "contamination": null,
+      "extra": {}
+     }
+    },
+    "one_class_svm": {
+     "model": {
+      "name": "one_class_svm",
+      "kernel": "rbf",
+      "nu": 0.05,
+      "gamma": null,
+      "extra": {}
+     }
+    },
+    "elliptic_envelope": {
+     "model": {
+      "name": "elliptic_envelope",
+      "contamination": 0.05,
+      "support_fraction": null,
+      "extra": {}
+     }
+    },
+    "hdbscan_outliers": {
+     "model": {
+      "name": "hdbscan_outliers",
+      "min_cluster_size": 15,
+      "min_samples": null,
+      "flag_quantile": 0.95,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "trees",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_estimators": [
+     50,
+     400
+    ]
+   }
+  }
+ ]
+}

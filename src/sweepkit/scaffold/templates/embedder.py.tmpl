@@ -1,0 +1,48 @@
+"""{{name}}: a dimensionality reduction (say in one sentence what it does and where it comes from).
+
+Written by `python -m sweepkit.cli scaffold --kind embedder`. Change the settings class, fit_transform (the body here
+is PCA by singular value decomposition, so the scaffold runs as written), transform and inverse_transform if the
+method has them (say so in can_transform and can_inverse), info() and params(). docs/EXTENDING.md walks through it.
+"""
+import dataclasses
+
+import numpy as np
+
+from sweepkit.models.base import Embedder, plain_params
+from sweepkit.registry import register_model
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    n_components: int
+
+
+@register_model("{{name}}", settings={{Name}}Settings, family="embedder", tasks=("embedding",), kinds=("tabular",),
+                gpu="none", profile="core", packages=(), description="{{name}} (describe it in a few words)",
+                example="{{example}}")
+class {{Name}}(Embedder):
+    def fit_transform(self, x):
+        x = np.asarray(x, dtype=np.float64)
+        self.mean = x.mean(axis=0)
+        _, s, vt = np.linalg.svd(x - self.mean, full_matrices=False)
+        self.components = vt[:self.s.n_components]
+        self.explained = float((s[:self.s.n_components] ** 2).sum() / (s ** 2).sum())
+        return ((x - self.mean) @ self.components.T).astype(np.float32)
+
+    def can_transform(self):
+        return True
+
+    def transform(self, x_new):
+        return ((np.asarray(x_new, dtype=np.float64) - self.mean) @ self.components.T).astype(np.float32)
+
+    def can_inverse(self):
+        return True
+
+    def inverse_transform(self, embedding):
+        return np.asarray(embedding, dtype=np.float64) @ self.components + self.mean
+
+    def info(self):
+        return {"explained_variance": self.explained}
+
+    def params(self):
+        return plain_params(dataclasses.asdict(self.s))

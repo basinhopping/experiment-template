@@ -1,0 +1,124 @@
+{
+ "sweep_id": "example_cluster_series",
+ "description": "Time series of three shapes, each row one series: k-means with dynamic time warping and k-Shape (tslearn, profile unsupervised) against plain k-means on the time points, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "series",
+   "n_rows": 150,
+   "n_features": 40,
+   "n_groups": 3,
+   "noise": 0.1,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": null,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "dtw_kmeans",
+   "n_clusters": 3,
+   "metric": "dtw",
+   "max_iter": 10,
+   "n_init": 2,
+   "max_iter_barycenter": 10,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "methods",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "kshape": {
+     "model": {
+      "name": "kshape",
+      "n_clusters": 3,
+      "max_iter": 50,
+      "n_init": 3,
+      "normalize": true,
+      "extra": {}
+     }
+    },
+    "kmeans": {
+     "model": {
+      "name": "kmeans",
+      "n_clusters": 3,
+      "init": "k-means++",
+      "n_init": 4,
+      "max_iter": 300,
+      "tol": 0.0001,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "settings",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.metric": [
+     "softdtw",
+     "euclidean"
+    ]
+   }
+  }
+ ]
+}

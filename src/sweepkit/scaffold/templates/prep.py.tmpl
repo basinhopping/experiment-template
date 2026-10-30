@@ -1,0 +1,47 @@
+"""{{name}}: a preparation step (say in one sentence what it does to the columns or rows).
+
+Written by `python -m sweepkit.cli scaffold --kind prep`. A step is fitted on the fit (training) rows only and then
+applied to every role's rows, so a value in a held-out row never changes what it learns (its test checks this).
+Change the settings class, fit (learn from the fit rows; the body here learns each numeric column's low and high
+quantile), transform (apply it to any rows; here, clip every value to those bounds), names (if the step adds or drops
+columns), removed (if it takes rows out of fitting; declare removes_rows=True), and record (what it learned, written to
+prep_record.json). A step that must see rows other than the fit rows is declared transductive=True, and every report
+that uses it says so. docs/EXTENDING.md walks through it.
+"""
+import dataclasses
+
+import numpy as np
+
+from sweepkit.prep.base import PrepStep
+from sweepkit.registry import register_prep
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    quantile: float                 # each numeric column is clipped to its quantile and 1 - quantile on the fit rows
+
+
+@register_prep("{{name}}", settings={{Name}}Settings, kinds=("tabular",), profile="core", packages=(),
+               description="{{name}} (describe it in a few words)", example="{{example}}")
+class {{Name}}(PrepStep):
+    @staticmethod
+    def check_job(job) -> None:
+        for name, s in job.prep:
+            if name == "{{name}}" and not 0 <= s.quantile < 0.5:
+                raise ValueError("prep {{name}}: quantile in [0, 0.5)")
+
+    def fit(self, x, positions):
+        x = np.asarray(x, dtype=np.float64)
+        self.columns = self.numeric_columns(x.shape[1])
+        self.low = np.quantile(x[:, self.columns], self.s.quantile, axis=0)
+        self.high = np.quantile(x[:, self.columns], 1 - self.s.quantile, axis=0)
+
+    def transform(self, x, positions):
+        x = np.array(x, dtype=np.float64, copy=True)
+        x[:, self.columns] = np.clip(x[:, self.columns], self.low, self.high)
+        return x
+
+    def record(self):
+        names = [self.ctx.feature_names[j] for j in self.columns]
+        return {"quantile": self.s.quantile, "low": dict(zip(names, self.low.tolist())),
+                "high": dict(zip(names, self.high.tolist()))}

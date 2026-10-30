@@ -1,0 +1,72 @@
+"""{{name}}: a neural network of the torch family (say in one sentence what it does and where it comes from).
+
+Written by `python -m sweepkit.cli scaffold --kind torch_model`. The torch family's fit procedure trains it (epochs,
+the best validation epoch kept and reloaded, the refit, the controls), so the model is only the network. What to
+change, in order (docs/EXTENDING.md walks through it; models/torch/base.py lists the interface):
+  the settings class   every setting the network takes, no defaults
+  check()              settings that cannot work raise ValueError; it runs when a sweep is expanded (input_shape None
+                       when the settings alone do not tell it) and again when the network is built
+  the module           __init__ builds the layers; embed(x, lengths) gives the summary [batch, embedding_dim],
+                       classify(summary) the outputs [batch, n_outputs], forward(x, lengths) both; embedding_dim and
+                       head_dropout are read by the extra heads (auxiliary, contrastive)
+  kinds                what one row is: tabular (x [batch, columns]), sequence (x [batch, channels, steps] and
+                       lengths), image (x [batch, channels, height, width]), text (a list of strings), graph (a
+                       GraphBatch); the body here reads tabular rows
+The body is a multilayer perceptron (linear layers, the activation, dropout), so the scaffold runs as written. torch
+is imported inside functions only, so registering the model and checking a sweep work without it.
+"""
+import dataclasses
+from typing import Literal
+
+from sweepkit.models.torch.base import torch_model
+from sweepkit.models.torch.heads import activation_layer
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    hidden: tuple[int, ...]         # width of each hidden layer (may be empty: a linear model)
+    activation: Literal["relu", "leaky_relu", "elu", "gelu", "silu"]
+    dropout: float                  # after each hidden layer's activation, and before the output layer
+
+
+def check(settings: {{Name}}Settings, input_shape) -> None:
+    if any(h < 1 for h in settings.hidden):
+        raise ValueError("model {{name}}: hidden widths must be positive")
+    if not 0.0 <= settings.dropout < 1.0:
+        raise ValueError("model {{name}}: dropout must be in [0, 1)")
+    if input_shape is not None and (len(input_shape) != 1 or input_shape[0] < 1):
+        raise ValueError(f"model {{name}} reads tabular rows (one column count), not input {input_shape}")
+
+
+def _module_class():
+    from torch import nn
+
+    class {{Name}}(nn.Module):
+        def __init__(self, settings: {{Name}}Settings, input_shape: tuple, n_outputs: int):
+            super().__init__()
+            layers, width = [], input_shape[0]
+            for size in settings.hidden:
+                layers += [nn.Linear(width, size), activation_layer(settings.activation), nn.Dropout(settings.dropout)]
+                width = size
+            self.body = nn.Sequential(*layers)
+            self.embedding_dim = width
+            self.head_dropout = settings.dropout
+            self.head = nn.Sequential(nn.Dropout(settings.dropout), nn.Linear(width, n_outputs))
+
+        def embed(self, x, lengths):
+            """x: [batch, columns]; lengths: None. The summary [batch, embedding_dim]."""
+            return self.body(x.float())
+
+        def classify(self, embedding):
+            return self.head(embedding)
+
+        def forward(self, x, lengths):
+            return self.classify(self.embed(x, lengths))
+
+    return {{Name}}
+
+
+@torch_model("{{name}}", settings={{Name}}Settings, kinds=("tabular",),
+             description="{{name}} (describe it in a few words)", example="{{example}}", check=check)
+def build(settings: {{Name}}Settings, input_shape: tuple, n_outputs: int):
+    return _module_class()(settings, input_shape, n_outputs)

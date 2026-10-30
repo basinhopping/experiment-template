@@ -1,0 +1,21 @@
+{
+ "sweep_id": "example_{{example}}",
+ "description": "Logistic regression on synthetic classes with the {{name}} split, two strengths of regularization.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": ["split1"],
+ "base": {
+  "data": {"name": "synthetic", "generator": "classification", "n_rows": 600, "n_features": 6, "n_groups": 3, "noise": 1.0, "seed": 1},
+  "split": {"name": "{{name}}", "val_fraction": 0.2, "test_fraction": 0.2, "salt": "example"},
+  "task": {"name": "classification", "target": "truth", "classes": ["c0", "c1", "c2"],
+           "metrics": ["balanced_accuracy", "accuracy"], "select": "balanced_accuracy", "groups": []},
+  "prep": [{"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}],
+  "features": {"name": "none"},
+  "model": {"name": "logistic_regression", "c": 1.0, "l1_ratio": 0.0, "class_weight": "none", "max_iter": 500, "extra": {}},
+  "fit": {"name": "estimator", "device": "cpu", "control": "none", "refit": "train", "eval_train": false}
+ },
+ "stages": [
+  {"name": "base", "kind": "base", "priority": 9, "seeds": [1, 2, 3]},
+  {"name": "c", "kind": "one_factor_at_a_time", "priority": 8, "seeds": [1, 2, 3], "factors": {"model.c": [0.01]}}
+ ]
+}

@@ -1,0 +1,134 @@
+{
+ "sweep_id": "example_prep_mixed",
+ "description": "Mixed numeric and categorical columns: one-hot encoding of the categorical codes before k-means, with and without the first category dropped, against k-prototypes and k-medoids on Gower distances, which read the codes directly, chosen by silhouette.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "mixed",
+   "n_rows": 500,
+   "n_features": 6,
+   "n_groups": 3,
+   "noise": 1.0,
+   "seed": 1
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.8,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "dbcv",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 400,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "ami",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "onehot",
+    "drop_first": false
+   },
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 3,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "encoding",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "drop_first": {
+     "prep.onehot.drop_first": true
+    },
+    "kprototypes": {
+     "prep": [
+      {
+       "name": "scale",
+       "method": "zscore",
+       "columns": [
+        "*"
+       ],
+       "per_group": null
+      }
+     ],
+     "model": {
+      "name": "kprototypes",
+      "n_clusters": 3,
+      "gamma": null,
+      "n_init": 4,
+      "max_iter": 100
+     }
+    },
+    "kmedoids_gower": {
+     "prep": [],
+     "model": {
+      "name": "kmedoids",
+      "n_clusters": 3,
+      "metric": "gower",
+      "method": "alternate",
+      "max_iter": 100,
+      "n_init": 4
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,152 @@
+{
+ "sweep_id": "example_classify_logistic",
+ "description": "Logistic regression on three planted classes with stratified 5-fold cross-validation (each fold tests one part and validates on the next) plus the identity check fold, whose validation rows are its test rows: no choosing step reads it, and test-report checks that its validation and test numbers agree. The penalty strength and type vary one at a time; the shuffled-label control should sit at chance (balanced accuracy near 1/3).",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3",
+  "fold4",
+  "fold5",
+  "identity"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "classification",
+   "n_rows": 600,
+   "n_features": 8,
+   "n_groups": 3,
+   "noise": 1.5,
+   "seed": 1
+  },
+  "split": {
+   "name": "kfold",
+   "k": 5,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": true
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "f1_micro",
+    "f1_weighted",
+    "recall_macro",
+    "precision_macro",
+    "mcc",
+    "cohen_kappa",
+    "log_loss",
+    "brier",
+    "roc_auc",
+    "average_precision"
+   ],
+   "select": "balanced_accuracy",
+   "groups": [
+    "group"
+   ]
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "logistic_regression",
+   "c": 1.0,
+   "l1_ratio": 0.0,
+   "class_weight": "none",
+   "max_iter": 1000,
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "penalty",
+   "kind": "one_factor_at_a_time",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.c": [
+     0.01,
+     0.1,
+     10.0,
+     null
+    ],
+    "model.l1_ratio": [
+     0.5,
+     1.0
+    ]
+   }
+  },
+  {
+   "name": "balance",
+   "kind": "variants",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "balanced_weights": {
+     "model.class_weight": "balanced"
+    }
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,79 @@
+"""{{name}}: a clustering method (say in one sentence what it does and where it comes from).
+
+Written by `python -m sweepkit.cli scaffold --kind clusterer`. What to change, in order (docs/EXTENDING.md walks
+through it): the settings class (every setting the method takes, no defaults); fit() (the method itself; the body
+here is plain k-means from random rows, so the scaffold runs as written); labels(), soft() and assign() if the method
+has them; info() for numbers the method reports about itself; params() for every parameter used, library defaults
+included when a library is called (models.base.library_params). The body is k-means with k-means++ starts, run n_init
+times from the run's own random stream, keeping the start with the smallest within-cluster sum of squares. Call libraries with every parameter passed
+explicitly and an `extra` dictionary for the rest (see models/cluster/centroid.py). Keep the example sweep and the
+test in step with the settings.
+"""
+import dataclasses
+
+import numpy as np
+
+from sweepkit.models.base import Clusterer, plain_params
+from sweepkit.registry import register_model
+from sweepkit.streams import generator
+
+
+@dataclasses.dataclass(frozen=True)
+class {{Name}}Settings:
+    n_clusters: int
+    n_init: int                     # starts; the one with the smallest within-cluster sum of squares is kept
+    max_iter: int                   # updates per start at most
+
+
+@register_model("{{name}}", settings={{Name}}Settings, family="clusterer", tasks=("clustering",), kinds=("tabular",),
+                gpu="none", profile="core", packages=(), description="{{name}} (describe it in a few words)",
+                example="{{example}}")
+class {{Name}}(Clusterer):
+    @staticmethod
+    def check_job(job) -> None:
+        if job.model.n_clusters < 1 or job.model.n_init < 1 or job.model.max_iter < 1:
+            raise ValueError("model {{name}}: n_clusters, n_init and max_iter at least 1")
+
+    def _start(self, x, rng):
+        """k-means++: the first centre a random row, each next one a row drawn with probability proportional to its
+        squared distance from the nearest centre so far."""
+        centers = [x[rng.integers(x.shape[0])]]
+        for _ in range(1, self.s.n_clusters):
+            d2 = ((x[:, None, :] - np.array(centers)[None]) ** 2).sum(axis=2).min(axis=1)
+            centers.append(x[rng.choice(x.shape[0], p=d2 / d2.sum())] if d2.sum() > 0 else x[rng.integers(x.shape[0])])
+        return np.array(centers)
+
+    def fit(self, x):
+        x = np.asarray(x, dtype=np.float64)
+        rng = generator(self.seed, "{{name}}")
+        best = None
+        for _ in range(self.s.n_init):
+            centers = self._start(x, rng)
+            for _ in range(self.s.max_iter):
+                labels = np.argmin(((x[:, None, :] - centers[None]) ** 2).sum(axis=2), axis=1)
+                new = np.array([x[labels == c].mean(axis=0) if (labels == c).any() else centers[c]
+                                for c in range(self.s.n_clusters)])
+                if np.allclose(new, centers):
+                    break
+                centers = new
+            labels = np.argmin(((x[:, None, :] - centers[None]) ** 2).sum(axis=2), axis=1)
+            inertia = float(((x - centers[labels]) ** 2).sum())
+            if best is None or inertia < best[0]:
+                best = (inertia, centers, labels)
+        self.inertia, self.centers, self._labels = best
+
+    def info(self):
+        return {"inertia": self.inertia}
+
+    def labels(self):
+        return np.asarray(self._labels, dtype=np.int64)
+
+    def can_assign(self):
+        return True
+
+    def assign(self, x_new):
+        x_new = np.asarray(x_new, dtype=np.float64)
+        return np.argmin(((x_new[:, None, :] - self.centers[None]) ** 2).sum(axis=2), axis=1)
+
+    def params(self):
+        return plain_params(dataclasses.asdict(self.s))

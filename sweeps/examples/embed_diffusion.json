@@ -1,0 +1,123 @@
+{
+ "sweep_id": "example_embed_diffusion",
+ "description": "Diffusion maps of a swiss roll, fitted on 70% of the rows and placing the rest by the Nystrom extension: an adaptive kernel against a fixed one, the density normalization alpha and the diffusion time t, chosen by trustworthiness.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "holdout"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "swiss_roll",
+   "n_rows": 600,
+   "n_features": 3,
+   "n_groups": 4,
+   "noise": 0.05,
+   "seed": 1
+  },
+  "split": {
+   "name": "fit_holdout",
+   "fit_fraction": 0.7,
+   "salt": "example"
+  },
+  "task": {
+   "name": "embedding",
+   "criteria": [
+    "trustworthiness",
+    "continuity",
+    "knn_preservation"
+   ],
+   "select": "trustworthiness",
+   "sample_rows": 300,
+   "sample_salt": "example",
+   "n_neighbors": 10,
+   "reference": "truth",
+   "reveal_metrics": [
+    "knn_label_agreement",
+    "reference_silhouette"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "diffusion_map",
+   "n_components": 2,
+   "kernel": "adaptive",
+   "bandwidth": null,
+   "n_neighbors": 10,
+   "alpha": 1.0,
+   "t": 1,
+   "solver": "dense"
+  },
+  "fit": {
+   "name": "embedder",
+   "device": "cpu",
+   "assign": "predict"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "kernel",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "fixed_kernel": {
+     "model.kernel": "fixed",
+     "model.bandwidth": 0.5,
+     "model.n_neighbors": null
+    },
+    "arpack": {
+     "model.solver": "arpack"
+    }
+   }
+  },
+  {
+   "name": "diffusion",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.alpha": [
+     0.0,
+     0.5
+    ],
+    "model.t": [
+     0,
+     4
+    ]
+   }
+  }
+ ]
+}

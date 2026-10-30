@@ -1,0 +1,157 @@
+{
+ "sweep_id": "example_classify_boosting",
+ "description": "Gradient boosting on three planted classes with stratified 4-fold cross-validation: scikit-learn's histogram boosting against XGBoost and LightGBM (the boosting profile; skipped where it is not installed), and the learning rate and number of rounds one at a time. Test rows are predicted by a model refitted on training plus validation rows (refit train_and_val); validation always comes from the model fitted on training rows.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "fold1",
+  "fold2",
+  "fold3",
+  "fold4"
+ ],
+ "base": {
+  "data": {
+   "name": "synthetic",
+   "generator": "classification",
+   "n_rows": 800,
+   "n_features": 8,
+   "n_groups": 3,
+   "noise": 1.5,
+   "seed": 5
+  },
+  "split": {
+   "name": "kfold",
+   "k": 4,
+   "stratify": "truth",
+   "salt": "example",
+   "identity_fold": false
+  },
+  "task": {
+   "name": "classification",
+   "target": "truth",
+   "classes": [
+    "c0",
+    "c1",
+    "c2"
+   ],
+   "metrics": [
+    "balanced_accuracy",
+    "accuracy",
+    "f1_macro",
+    "log_loss"
+   ],
+   "select": "balanced_accuracy",
+   "groups": []
+  },
+  "prep": [],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "hist_gradient_boosting",
+   "learning_rate": 0.1,
+   "max_iter": 100,
+   "max_leaf_nodes": 31,
+   "max_depth": null,
+   "min_samples_leaf": 20,
+   "l2_regularization": 0.0,
+   "early_stopping": false,
+   "class_weight": "none",
+   "extra": {}
+  },
+  "fit": {
+   "name": "estimator",
+   "device": "auto",
+   "control": "none",
+   "refit": "train_and_val",
+   "eval_train": true
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "libraries",
+   "kind": "variants",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "xgboost": {
+     "model": {
+      "name": "xgboost",
+      "n_estimators": 200,
+      "learning_rate": 0.1,
+      "max_depth": 4,
+      "num_leaves": null,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_lambda": 1.0,
+      "n_jobs": 1,
+      "extra": {}
+     }
+    },
+    "lightgbm": {
+     "model": {
+      "name": "lightgbm",
+      "n_estimators": 200,
+      "learning_rate": 0.1,
+      "max_depth": null,
+      "num_leaves": 15,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_lambda": 1.0,
+      "n_jobs": 1,
+      "extra": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "rounds",
+   "kind": "one_factor_at_a_time",
+   "priority": 7,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.learning_rate": [
+     0.03,
+     0.3
+    ],
+    "model.max_iter": [
+     30,
+     300
+    ]
+   }
+  },
+  {
+   "name": "control",
+   "kind": "variants",
+   "priority": 6,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "shuffled_labels": {
+     "fit.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

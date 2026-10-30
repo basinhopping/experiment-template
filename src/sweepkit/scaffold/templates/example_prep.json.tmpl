@@ -1,0 +1,23 @@
+{
+ "sweep_id": "example_{{example}}",
+ "description": "{{name}} before z-scores and k-means on planted blobs, against z-scores alone, and its quantile one value lower.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": ["sub1", "sub2", "sub3"],
+ "base": {
+  "data": {"name": "synthetic", "generator": "blobs", "n_rows": 600, "n_features": 5, "n_groups": 3, "noise": 1.0, "seed": 1},
+  "split": {"name": "subsamples", "k": 3, "fraction": 0.8, "salt": "example"},
+  "task": {"name": "clustering", "criteria": ["silhouette", "n_clusters"], "select": "silhouette", "sample_rows": 400,
+           "sample_salt": "example", "reference": "truth", "reveal_metrics": ["ari"], "criteria_options": {}},
+  "prep": [{"name": "{{name}}", "quantile": 0.05}, {"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}],
+  "features": {"name": "none"},
+  "model": {"name": "kmeans", "n_clusters": 3, "init": "k-means++", "n_init": 4, "max_iter": 300, "tol": 0.0001, "extra": {}},
+  "fit": {"name": "clusterer", "device": "cpu", "assign": "fit_rows"}
+ },
+ "stages": [
+  {"name": "base", "kind": "base", "priority": 9, "seeds": [1, 2, 3]},
+  {"name": "without", "kind": "variants", "priority": 8, "seeds": [1, 2, 3],
+   "variants": {"zscore_only": {"prep": [{"name": "scale", "method": "zscore", "columns": ["*"], "per_group": null}]},
+                "quantile_0_01": {"prep.{{name}}.quantile": 0.01}}}
+ ]
+}

@@ -1,0 +1,104 @@
+{
+ "sweep_id": "example_data_store",
+ "description": "A store made by convert from a CSV (make-example-data writes both): the same k-means read from the memory-mapped store, with two numbers of clusters.",
+ "purpose": "learning",
+ "follows": [],
+ "folds": [
+  "sub1",
+  "sub2",
+  "sub3"
+ ],
+ "base": {
+  "data": {
+   "name": "store",
+   "store": "example_store",
+   "features": [
+    "*"
+   ],
+   "keep": [
+    "truth",
+    "group"
+   ],
+   "filter_column": null,
+   "filter_values": []
+  },
+  "split": {
+   "name": "subsamples",
+   "k": 3,
+   "fraction": 0.5,
+   "salt": "example"
+  },
+  "task": {
+   "name": "clustering",
+   "criteria": [
+    "silhouette",
+    "calinski_harabasz",
+    "n_clusters"
+   ],
+   "select": "silhouette",
+   "sample_rows": 500,
+   "sample_salt": "example",
+   "reference": "truth",
+   "reveal_metrics": [
+    "ari",
+    "nmi"
+   ],
+   "criteria_options": {}
+  },
+  "prep": [
+   {
+    "name": "scale",
+    "method": "zscore",
+    "columns": [
+     "*"
+    ],
+    "per_group": null
+   }
+  ],
+  "features": {
+   "name": "none"
+  },
+  "model": {
+   "name": "kmeans",
+   "n_clusters": 3,
+   "init": "k-means++",
+   "n_init": 4,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "extra": {}
+  },
+  "fit": {
+   "name": "clusterer",
+   "device": "auto",
+   "assign": "fit_rows"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 9,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "k",
+   "kind": "one_factor_at_a_time",
+   "priority": 8,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.n_clusters": [
+     2,
+     4
+    ]
+   }
+  }
+ ]
+}
