@@ -229,9 +229,11 @@ def cmd_select(args) -> int:
 
     record = selection_record(args.sweep, args.config, args.name, args.reason)
     saved = _save(paths.selections_dir(), args.name, {"selection.json": record}, "select")
+    from sweepkit.eval.stats import shown
+
     value = record["choosing"].get("value")
     print(f"selected {record['config_hash'][:12]} of {record['sweep_id']} ({record['label']}), "
-          f"{record['select']['metric']} {value:.4f}, rank {record['rank']} of {record['n_ranked']}, "
+          f"{record['select']['metric']} {shown(value)}, rank {record['rank']} of {record['n_ranked']}, "
           f"from {record['analysis_report']['folder']}")
     print(f"saved {saved}")
     return 0

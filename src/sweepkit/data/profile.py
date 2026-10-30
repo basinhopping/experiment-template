@@ -74,7 +74,24 @@ def profile_folder(root: Path) -> dict:
     return {"kind": "folder", "n_files": len(files), "bytes": total, "by_extension": dict(by_ext.most_common()),
             "empty_files": empty, "unreadable": unreadable, "leftovers": sorted(leftovers),
             "case_collisions": collisions, "names_windows_refuses": bad_names, "very_long_paths": long_paths,
-            "tables": sorted(f for f in files if Path(f).suffix.lower() in TABLE_SUFFIXES)[:200]}
+            "tables": sorted(f for f in files if Path(f).suffix.lower() in TABLE_SUFFIXES
+                             and (Path(f).suffix.lower() != ".txt" or _delimited_text(root / f)))[:200]}
+
+
+def _delimited_text(path: Path) -> bool:
+    """A .txt file counts as a table when it reads as profile-data reads a .txt, comma-separated: its name is not a
+    README, its first line holds a comma, and its second line, if any, holds as many (a folder of eleven CSV files and
+    a README.txt was reported as twelve tables, 2026-10-30; a licence's first sentence can hold a comma too)."""
+    if path.name.lower().startswith("readme"):
+        return False
+    try:
+        with open(path, "rb") as handle:
+            lines = [line for line in handle.read(65536).splitlines() if line.strip()][:2]
+    except OSError:
+        return False
+    if not lines or b"," not in lines[0]:
+        return False
+    return len(lines) == 1 or lines[0].count(b",") == lines[1].count(b",")
 
 
 def _chunks(path: Path, max_rows: int | None, chunk_rows: int):

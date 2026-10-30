@@ -48,13 +48,15 @@ From the project folder, build the main environment with the profiles your work 
 profiles a problem needs; `core torch unsupervised` covers most projects, and Claude will tell you if you need more.
 
 - Windows, in the same Command Prompt (the line starts PowerShell for the setup script; `-TorchIndex cpu`, or
-  `cu130` with an NVIDIA GPU):
+  `cu130` with an NVIDIA GPU). It uses Python 3.12; with only 3.13 installed (`py -0` lists `-V:3.13` and no 3.12),
+  add `-Python 3.13` at the end:
 
   ```
   powershell -ExecutionPolicy Bypass -File env\setup.ps1 -Environment main -Profiles "core,torch,unsupervised" -TorchIndex cpu
   ```
 
-- Mac or Linux, Terminal:
+- Mac or Linux, Terminal (on a Mac with an Intel chip, torch and unsupervised do not install, since their
+  packages publish no Intel Mac builds of these versions: build `main core` there and run the rest on a GPU node):
 
   ```
   bash env/setup.sh main core torch unsupervised

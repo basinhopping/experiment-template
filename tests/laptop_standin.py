@@ -9,7 +9,9 @@ through node/rapids_run.sh (cuML's zero-code-change mode), and compares the labe
     python tests/laptop_standin.py --compare <labels_a.csv> <labels_b.csv> [<rows.csv with a truth column>]
 
 --compare prints the adjusted Rand index between two label files on the rows they share, and each file's against the
-truth column when a rows file is given. A label file may also be a run's assignments.csv (row_id and cluster).
+truth column when a rows file is given. A label file may also be a run's assignments.csv (row_id and cluster). A
+person's script names its columns as its data do: give them after the file, as <file>:<ID column>:<label column>,
+for example clusters.csv:sample_id:cluster (my_clustering.py's output could not be read without, 2026-10-30).
 """
 import sys
 import time
@@ -35,9 +37,16 @@ def cluster(rows: str, out: str) -> None:
 
 
 def labels_of(path: str) -> pd.DataFrame:
-    frame = pd.read_csv(path)
-    column = "label" if "label" in frame.columns else "cluster"
-    return frame[["row_id", column]].rename(columns={column: "label"})
+    """row_id and label of a label file; <file>:<ID column>:<label column> names the columns (rsplit keeps a Windows
+    drive letter's colon with the file)."""
+    parts = path.rsplit(":", 2)
+    ids, column = "row_id", None
+    if len(parts) == 3 and parts[1] and parts[2] and not parts[2].startswith(("\\", "/")):
+        path, ids, column = parts
+    frame = pd.read_csv(path, dtype={ids: str})
+    if column is None:
+        column = "label" if "label" in frame.columns else "cluster"
+    return frame[[ids, column]].rename(columns={ids: "row_id", column: "label"})
 
 
 def compare(a: str, b: str, rows=None) -> None:
@@ -48,7 +57,7 @@ def compare(a: str, b: str, rows=None) -> None:
     print(f"{len(both)} rows in both: adjusted Rand index {adjusted_rand_score(both.label_a, both.label_b):.6f}, "
           f"identical labels {bool((both.label_a == both.label_b).all())}")
     if rows:
-        truth = pd.read_csv(rows, usecols=["row_id", "truth"])
+        truth = pd.read_csv(rows, usecols=["row_id", "truth"], dtype={"row_id": str})
         for name, labels in ((a, left), (b, right)):
             with_truth = labels.merge(truth, on="row_id")
             print(f"{name} against the truth: adjusted Rand index "

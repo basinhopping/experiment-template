@@ -30,9 +30,20 @@ class ReduceSettings:
                example="cluster_umap_hdbscan")
 class Reduce(PrepStep):
     def fit(self, x, positions):
+        from sweepkit import devices
         from sweepkit.models.base import build_embedder
+        from sweepkit.registry import MODELS
 
-        self.embedder = build_embedder(self.s.method, self.ctx.seed, self.ctx.device)
+        # The job's device is its model's, and this embedder's GPU path may be another one: PCA's is cuML's, while a
+        # TriMap after it runs on torch, and the main environment has torch but no cuML (the node, 2026-10-30:
+        # "No module named 'cuml'"). So the embedder takes the job's device as an offer, as `auto` does: its own GPU
+        # path when that path can run here, else the CPU. record() names the device only when it differs from the
+        # job's, so a run's prep_record.json stays what earlier code wrote (compare-runs compares it).
+        entry = MODELS.get(self.s.method.name)
+        hook = getattr(entry.target, "gpu_unsupported", None)
+        unsupported = hook(self.s.method.settings) if hook is not None else None
+        self.device = devices.resolve("auto", self.ctx.device, entry.meta["gpu"], unsupported)
+        self.embedder = build_embedder(self.s.method, self.ctx.seed, self.device)
         self.fit_positions = np.asarray(positions)
         self.fit_out = np.asarray(self.embedder.fit_transform(np.asarray(x, dtype=np.float32)), dtype=np.float64)
         self.width = self.fit_out.shape[1]
@@ -53,7 +64,8 @@ class Reduce(PrepStep):
         return {}
 
     def record(self):
-        return {"method": self.s.method.name, "components": self.width, **self.embedder.info()}
+        moved = {"device": self.device} if self.device != self.ctx.device else {}
+        return {"method": self.s.method.name, "components": self.width, **moved, **self.embedder.info()}
 
 
 @dataclasses.dataclass(frozen=True)

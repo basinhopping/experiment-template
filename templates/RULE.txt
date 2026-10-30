@@ -13,7 +13,11 @@ still queued from earlier rounds keep running under their own rules.
    (Which files are read, in which order: validation or label-free files first, with analyze; then select; only then
    the test or reveal files of the selected configurations, with test-report or reveal-report. Which comparisons
    are made, as families (the families file given to rule-fix: paired bootstrap, Holm within each family), on which
-   seeds, and what happens to runs not finished at the reading time.)
+   seeds, and what happens to runs not finished at the reading time. How select chooses: the criterion, and for
+   label-free work the stability and the number of groups found, read together (a floor fixed in advance can turn
+   away the best: in the template's dry run a stability floor of 0.8 turned away, in two of ten sweeps, the
+   configuration nearest the planted groups); what decides a tie (for example, of two whose intervals overlap, the
+   more stable, then the simpler); and what happens when the most stable is not the one the criterion ranks first.)
 
 3. Stop condition
    {{stop_condition}}

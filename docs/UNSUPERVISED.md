@@ -57,9 +57,22 @@ Every unsupervised configuration's stability is measured from its own output fil
 - **across subsamples**: for each seed, every pair of subsamples, on the rows both evaluated (they overlap).
 
 Agreement is the adjusted Rand index for clusters (noise counts as one more group), Spearman's correlation for outlier
-scores, and the mean overlap of each row's nearest neighbours for embeddings. A clustering that changes with the seed
-or with a fifth of the rows is not a finding, whatever its silhouette. `stability` can also be the criterion that
-chooses.
+scores, and for embeddings the mean Jaccard overlap of each row's nearest neighbours (the task's `n_neighbors`: with
+10, an overlap of 0.5 means about 7 of the 10 shared, 7 / 13 = 0.54). A clustering that changes with the seed or with
+a fifth of the rows is not a finding, whatever its silhouette. `stability` can also be the criterion that chooses.
+
+`analyze` prints the stability as the mean over every pair, then each part with its number of pairs: across seeds and
+across folds (the subsamples). A method that gives the same result for every seed (HDBSCAN, DBSCAN, agglomerative
+clustering) agrees perfectly across seeds by construction, which lifts its mean: compare it with a method that has
+randomness on the across-folds part.
+
+The neighbour overlap is low for many good embeddings, because a row's neighbours inside a tight group are
+interchangeable. In the template's dry run, the two-dimensional pictures of 3,000 simulated cells had stabilities of
+0.03 (PHATE) to 0.31 (t-SNE), 0.03 to 0.11 across folds, though t-SNE's picture of every row kept the six cell types
+apart (each cell's 10 nearest neighbours all of its own type); five-dimensional embeddings of gene data (PCA, ICA,
+kernel PCA, factor analysis) had 0.32 to 0.47, Isomap on a rolled sheet 0.73 and truncated SVD on word counts 0.95.
+Read an embedding's stability to compare configurations, not against a floor fixed before any value on similar data
+was seen: a floor of 0.5 ruled out every configuration of three of the six embedding sweeps there.
 
 ## How many subsamples
 
@@ -78,7 +91,30 @@ The examples use three subsamples to stay quick. A screen meant to compare metho
 deterministic method (the same result for every seed: HDBSCAN, DBSCAN, agglomerative clustering) varies only across
 subsamples, so more seeds do not help it; more subsamples do. Screen it on one seed: `analyze` compares
 configurations on one seed when they share two or more subsamples. A method with randomness (k-means starts, UMAP,
-the neural networks) keeps three seeds, so that its seed-to-seed spread is measured.
+the neural networks) keeps three seeds, so that its seed-to-seed spread is measured. In the template's dry run these
+also gave the same result for each of three seeds at their example settings (stability 1.000 across seeds): Leiden,
+Louvain and scanpy's Leiden, affinity propagation, spectral co-clustering and biclustering, t-SNE started from PCA,
+Isomap, non-metric MDS, spectral embedding, kernel PCA, truncated SVD, and NMF started from NNDSVDA. A setting can
+bring randomness back (a random start, for example), so compare one seed with three on a small sample before
+screening such a method on one seed.
+
+## What the template's dry run showed
+
+The template's dry run (2026-10-29) screened 61 methods in 16 sweeps on 11 synthetic files with planted answers
+(1,144 runs), ran each sweep's choice on every row, and only then scored the choices against the planted answers:
+
+- **The number of groups is a setting to search.** Every choice that found its own number of groups, or was given the
+  planted one, agreed with the planted groups at an adjusted Rand index of 0.89 to 1.00; every choice given 3 groups
+  where 4 or 5 were planted, at 0.48 to 0.71. Screen the number before comparing methods at one number: for each
+  method, a `one_factor_at_a_time` stage over its own setting in a sweep whose base is that method
+  (`model.n_clusters` for k-means and most clusterers, `model.n_components` for a Gaussian mixture, `model.n_topics`
+  for LDA).
+- **Silhouette does not compare a method that finds its own number of groups fairly with methods given one.** It
+  ranked a Bayesian Gaussian mixture last (silhouette 0.10) where it was the nearest to the planted groups (0.92).
+- **A stability floor fixed in advance can turn away the best configuration.** A floor of 0.8 did in two of ten
+  sweeps (stabilities 0.79 and 0.72, the nearest to the planted groups both times). Read the criterion, the
+  stability and the number of groups found together, and write in the RULE what decides a tie and what happens when
+  the most stable is not the one the criterion ranks first.
 
 ## Reveal metrics: agreement with known labels
 

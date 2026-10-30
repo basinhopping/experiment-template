@@ -104,7 +104,8 @@ class TestRounds(unittest.TestCase):
         self.assertEqual(steps, [f"env ENVIRONMENT=main MIN_FREE_GB=15 bash node/schedule.sh --check {schedule}",
                                  "env ENVIRONMENT=main SMOKE_DEVICE=cuda SMOKE_GPUS=0,1 bash node/smoke_enqueue.sh "
                                  "sweeps/r1_k.json",
-                                 f"env ENVIRONMENT=main MIN_FREE_GB=15 bash node/schedule.sh {schedule}"])
+                                 "env ENVIRONMENT=main MIN_FREE_GB=15 bash node/schedule.sh --end-when-empty "
+                                 + schedule])
         self.assertIn("bash node/disk_check.sh 15 > /dev/null", (self.folder / "lines" / "03_start.txt").read_text())
         lines = {p.name: p.read_text(encoding="utf-8") for p in (self.folder / "lines").glob("*.txt")}
         self.assertIn('"bash node/chain.sh sweeps/rounds/r1_prep_20261028/plan.txt"', lines["03_start.txt"])
@@ -159,6 +160,23 @@ class TestRounds(unittest.TestCase):
         new("2026-10-29 08:00", name="r6")
         plan = (self.root / "sweeps" / "rounds" / "r5_prep_20261028" / "plan.txt").read_text()
         self.assertIn("\"$(date -d 'now + 45 minutes' +%s):end\"", plan)
+
+    def test_the_readme_says_when_the_workers_stop(self):
+        """A time is the node's local time; a relative end counts from the workers' start, when the plan's step 3
+        reads it (the dry run's README read "stops them at now + 45 minutes, the node's local time", 2026-10-30)."""
+        from sweepkit.analysis.rounds import round_new
+
+        def stops(folder):
+            return " ".join((folder / "README.txt").read_text(encoding="utf-8").split())
+
+        self.assertIn("stops them at 2026-10-29 08:00, the node's local time, or earlier when no job is left",
+                      stops(self.folder))
+        round_new("r7", "20261028", "q", ["sweeps/r1_k.json"], 3, "0", "now + 45 minutes", "main", ["core"], 15)
+        self.assertIn("stops them 45 minutes after they start (the plan's step 3, once the smoke tests pass), or "
+                      "earlier when no job is left", stops(self.root / "artifacts" / "analyses" / "r7_prep_20261028"))
+        round_new("r8", "20261028", "q", ["sweeps/r1_k.json"], 3, "0", "now + 1 hours", "main", ["core"], 15)
+        self.assertIn("stops them 1 hour after they start",
+                      stops(self.root / "artifacts" / "analyses" / "r8_prep_20261028"))
 
     def test_a_sweep_with_jobs_only_a_cpu_worker_would_take_is_refused(self):
         s = json.loads((self.root / "sweeps" / "r1_k.json").read_text(encoding="utf-8"))

@@ -30,8 +30,17 @@ for item in src tests sweeps node env docs templates notebooks README.md START_H
     if [ -e "$REPO/$item" ]; then ITEMS+=("$item"); fi
 done
 CODE="${PROJECT}_code_${STAMP}.tar.gz"
-# COPYFILE_DISABLE keeps a Mac's tar from adding ._ resource files
-COPYFILE_DISABLE=1 tar -czf "$INC/$CODE" --exclude=__pycache__ --exclude='*.pyc' -C "$REPO" "${ITEMS[@]}"
+# COPYFILE_DISABLE keeps a Mac's tar from adding ._ resource files. A Mac's tar also records each file's extended
+# attributes (a downloaded repository's files carry com.apple.quarantine and com.apple.provenance) and file flags,
+# which GNU tar on the node reports as unknown keywords, three lines per file; each option that leaves them out is
+# used where this tar accepts it (GNU tar takes the first only). The ${A[@]+...} form keeps bash 3.2, a Mac's own
+# bash, from calling an empty list unbound.
+TAR_OPTS=()
+for opt in --no-xattrs --no-mac-metadata --no-fflags; do
+    if tar -cf /dev/null "$opt" -T /dev/null >/dev/null 2>&1; then TAR_OPTS+=("$opt"); fi
+done
+COPYFILE_DISABLE=1 tar -czf "$INC/$CODE" ${TAR_OPTS[@]+"${TAR_OPTS[@]}"} --exclude=__pycache__ --exclude='*.pyc' \
+    -C "$REPO" "${ITEMS[@]}"
 (cd "$INC" && $SHA "$CODE" > "$CODE.sha256")
 cp "$REPO/node/unpack.sh" "$INC/"
 echo "code archive $CODE  sha256 $(cut -d' ' -f1 "$INC/$CODE.sha256")"
@@ -40,7 +49,7 @@ if [ -n "$DATA" ]; then
     case "$DATA" in *[!A-Za-z0-9_.-]*) echo "--data takes the name of a folder in data/"; exit 1 ;; esac
     [ -d "$REPO/data/$DATA" ] || { echo "no folder data/$DATA"; exit 1; }
     DATA_NAME="${PROJECT}_data_${DATA}_${STAMP}.tar"
-    COPYFILE_DISABLE=1 tar -cf "$INC/$DATA_NAME" -C "$REPO/data" "$DATA"
+    COPYFILE_DISABLE=1 tar -cf "$INC/$DATA_NAME" ${TAR_OPTS[@]+"${TAR_OPTS[@]}"} -C "$REPO/data" "$DATA"
     (cd "$INC" && $SHA "$DATA_NAME" > "$DATA_NAME.sha256")
     echo "data archive $DATA_NAME  sha256 $(cut -d' ' -f1 "$INC/$DATA_NAME.sha256")"
 fi
@@ -51,8 +60,12 @@ else
 fi
 DIGEST="$(bash "$REPO/node/tree_digest.sh" "$REPO" 2>/dev/null || true)"
 echo ""
-echo "Copied to ~/${PROJECT}_incoming on the node. There, run:"
+if [ "${PUSH_DRY_RUN:-0}" = 1 ]; then
+    echo "Nothing was copied (a dry run). A real push copies this to ~/${PROJECT}_incoming on the node; there, run:"
+else
+    echo "Copied to ~/${PROJECT}_incoming on the node. There, run:"
+fi
 echo "    bash ~/${PROJECT}_incoming/unpack.sh $CODE"
 if [ -n "$DATA_NAME" ]; then echo "    bash ~/${PROJECT}_incoming/unpack.sh $DATA_NAME"; fi
 echo "Tree digest of the code sent: $DIGEST"
-echo "Local copy of what was sent: $STAGE"
+if [ "${PUSH_DRY_RUN:-0}" = 1 ]; then echo "What a real push would send: $STAGE"; else echo "Local copy of what was sent: $STAGE"; fi

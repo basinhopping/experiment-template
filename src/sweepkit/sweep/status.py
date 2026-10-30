@@ -14,6 +14,7 @@ from sweepkit import paths
 from sweepkit.analysis.records import (choosing_body, is_supervised, read_json, result_folds, run_folders,
                                        sweep_record, task_of)
 from sweepkit.analysis.validation import select_of
+from sweepkit.eval.stats import shown
 from sweepkit.sweep.queue import Queue
 from sweepkit.tasks.unsupervised import STABILITY
 
@@ -121,16 +122,19 @@ def render(s: dict, top: int) -> str:
         return "\n".join(lines)
     b = s["baseline"]
     if b:
-        sd = f"{b['sd']:.4f}" if b["sd"] is not None else "n/a"
-        lines.append(f"baseline: {b['seeds']} seeds, fold-mean {sel['metric']} {b['mean']:.4f}, SD {sd}, range "
-                     f"{b['min']:.4f} to {b['max']:.4f}")
+        sd = shown(b["sd"]) if b["sd"] is not None else "n/a"
+        lines.append(f"baseline: {b['seeds']} seeds, fold-mean {sel['metric']} {shown(b['mean'])}, SD {sd}, range "
+                     f"{shown(b['min'])} to {shown(b['max'])}")
     for g in s["controls"]:
-        chance = f" (chance {s['chance']:.4f})" if s["chance"] is not None else ""
-        lines.append(f"control {g['label']} seed {g['seed']}: fold-mean {sel['metric']} {g['fold_mean']:.4f}{chance}")
+        chance = f" (chance {shown(s['chance'])})" if s["chance"] is not None else ""
+        lines.append(f"control {g['label']} seed {g['seed']}: fold-mean {sel['metric']} {shown(g['fold_mean'])}{chance}")
     lines.append(f"top {min(top, len(s['ranked']))} of {len(s['ranked'])} complete (configuration, seed) pairs "
                  f"({s['partial']} partial) by fold-mean {sel['metric']}:")
+    base_size = abs(b["mean"] or 0.0) if b else 0.0
     for g in s["ranked"][:top]:
-        delta = f"{g['minus_base_same_seed']:+.4f}" if g["minus_base_same_seed"] is not None else "n/a"
-        lines.append(f"  {g['fold_mean']:.4f}  vs base {delta}  seed {g['seed']}  {g['config_hash'][:12]} "
+        # a difference is shown against the two values it compares, so that float rounding shows as 0
+        size = max(abs(g["fold_mean"] or 0.0), base_size)
+        delta = shown(g["minus_base_same_seed"], 4, True, size) if g["minus_base_same_seed"] is not None else "n/a"
+        lines.append(f"  {shown(g['fold_mean'])}  vs base {delta}  seed {g['seed']}  {g['config_hash'][:12]} "
                      f"{g['stage']}: {g['label']}")
     return "\n".join(lines)

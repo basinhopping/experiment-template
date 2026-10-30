@@ -4,6 +4,7 @@ the chain of a round, and the repository working with node/ removed.
 
 Nothing touches a real node: push runs with PUSH_DRY_RUN=1 and pull with PULL_FROM, and every script runs from a copy
 of the code installed into the temporary home."""
+import hashlib
 import json
 import os
 import shlex
@@ -19,7 +20,10 @@ from pathlib import Path
 
 from tests.support import REPO
 
-TOOLS = all(shutil.which(t) for t in ("bash", "tar", "sha256sum", "awk", "sed"))
+# The node's scripts and its first line run on the node, which runs Linux: they use GNU sed, find, ps and tar. A Mac
+# can have bash, tar and sha256sum too (BSD versions), and these tests would fail there for that reason alone.
+LINUX = sys.platform.startswith("linux")
+TOOLS = LINUX and all(shutil.which(t) for t in ("bash", "tar", "sha256sum", "awk", "sed"))
 
 
 def run(command, env, cwd=None, check=True):
@@ -29,7 +33,8 @@ def run(command, env, cwd=None, check=True):
     return done
 
 
-@unittest.skipUnless(TOOLS and (REPO / "node").is_dir(), "needs bash, tar, sha256sum and the node/ folder")
+@unittest.skipUnless(TOOLS and (REPO / "node").is_dir(),
+                     "needs Linux (the node's scripts use GNU tools), bash, tar, sha256sum and the node/ folder")
 class TestNodeLayer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -43,7 +48,12 @@ class TestNodeLayer(unittest.TestCase):
         (Path(cls.tmp.name) / "tmux").mkdir()
         cls.env = dict(os.environ, HOME=str(cls.home), TMPDIR=str(Path(cls.tmp.name) / "t"), PUSH_DRY_RUN="1",
                        TMUX_TMPDIR=str(Path(cls.tmp.name) / "tmux"))
-        cls.env.pop("TMUX", None)
+        # The node's settings come from each test, never from the process running the suite: check.sh exports
+        # ENVIRONMENT (rapids, when it tests that environment), and these tests' home has only the stand-in
+        # environments they make (the node, 2026-10-30: 23 failures under check.sh rapids rapids).
+        for name in ("TMUX", "ENVIRONMENT", "MIN_FREE_GB", "MAX_FAILS", "THREADS", "SMOKE_DEVICE", "SMOKE_GPUS",
+                     "SMOKE_GPU"):
+            cls.env.pop(name, None)
         out = run(["bash", str(REPO / "node" / "pc" / "push.sh")], cls.env).stdout
         cls.code = next(line.split()[2] for line in out.splitlines() if line.startswith("code archive "))
         incoming = Path(next(line for line in out.splitlines() if line.startswith("dry run")).split("is in ")[1])
@@ -66,6 +76,30 @@ class TestNodeLayer(unittest.TestCase):
         self.assertFalse((self.node / "node.local.txt").exists())
         self.assertIn(self.code, (self.node / "CODE_VERSIONS.log").read_text())
         self.assertEqual(tree_digest(self.pc), tree_digest(self.node))
+
+    def test_unpack_takes_a_macs_archive_without_a_warning_per_file(self):
+        """A Mac's tar records each file's extended attributes (com.apple.quarantine and com.apple.provenance on a
+        downloaded repository) and its file flags as pax keywords GNU tar does not know. unpack installs such an
+        archive without a warning per keyword and file (push's archive repacked with them, as a Mac's tar writes them
+        when nothing leaves them out)."""
+        import tarfile
+
+        from sweepkit.hashing import tree_digest
+
+        incoming = self.home / f"{self.project}_incoming"
+        name = f"{self.project}_code_20261030T000000Z.tar.gz"
+        recorded = {"LIBARCHIVE.xattr.com.apple.quarantine": "MDA4MTs2NzIxZjAwMDtTYWZhcmk7",
+                    "LIBARCHIVE.xattr.com.apple.provenance": "AQIAvZ7ZgsQyFb8=", "SCHILY.fflags": "hidden"}
+        with tarfile.open(incoming / self.code) as source, \
+                tarfile.open(incoming / name, "w:gz", format=tarfile.PAX_FORMAT) as mac:
+            for member in source.getmembers():
+                member.pax_headers = dict(member.pax_headers, **recorded)
+                mac.addfile(member, source.extractfile(member) if member.isfile() else None)
+        digest = hashlib.sha256((incoming / name).read_bytes()).hexdigest()
+        (incoming / f"{name}.sha256").write_text(f"{digest}  {name}\n")
+        done = run(["bash", str(incoming / "unpack.sh"), name, str(self.home / "mac")], self.env)
+        self.assertNotIn("unknown extended header keyword", done.stdout + done.stderr)
+        self.assertEqual(tree_digest(self.home / "mac"), tree_digest(self.node))
 
     def test_pack_then_pull_checks_every_file(self):
         runs = self.node / "artifacts" / "runs" / "s1"
@@ -477,14 +511,27 @@ class TestNodeLayer(unittest.TestCase):
         self.assertIn("timeout", (self.node / "queue" / "SWAP_FAILED").read_text())
 
     def _worker_with_a_python(self, state: Path, seconds: int, ends_after: float) -> None:
-        """A worker session on GPU 1 whose pane runs a Python of the project for `seconds`; the session itself is
-        gone after `ends_after` seconds, the Python still running (a job's process outliving its worker)."""
+        """A worker session on GPU 1 whose pane runs a Python of the project for `seconds`. As a worker does, the
+        session ends once the swap has written queue/STOP (`ends_after` seconds later), the Python still running (a
+        job's process outliving its worker). A timer from the start made the session end before the swap's first
+        checks on a busy machine, and the swap then rightly refused a Python outside the workers (2026-10-30)."""
+        stop = self.node / "queue" / "STOP"
+        stop.unlink(missing_ok=True)
         busy = self._python_of_the_project(seconds)
         (state / f"{self.project}_gpu1.static").write_text("")
         (state / f"{self.project}_gpu1.panes").write_text(f"{busy.pid}\n")
-        timer = threading.Timer(ends_after, lambda: (state / f"{self.project}_gpu1.static").unlink(missing_ok=True))
-        timer.start()
-        self.addCleanup(timer.cancel)
+        finished = threading.Event()
+
+        def end_when_stopped():
+            while not finished.is_set():
+                if stop.exists():
+                    finished.wait(ends_after)
+                    (state / f"{self.project}_gpu1.static").unlink(missing_ok=True)
+                    return
+                finished.wait(0.05)
+
+        threading.Thread(target=end_when_stopped, daemon=True).start()
+        self.addCleanup(finished.set)
 
     def test_swap_waits_for_the_projects_python_to_end(self):
         env, _, state = self._swap_env("_swap4", ("swap",))
@@ -544,6 +591,102 @@ class TestNodeLayer(unittest.TestCase):
         self.assertIn(" MAX_FAILS=", started[0])
         self.assertIn("/node/worker.sh gpu 0 3", started[0])
         (self.node / "queue" / "STOP").unlink()
+
+    def test_schedule_ends_early_when_its_queue_is_empty_and_its_workers_are_gone(self):
+        """--end-when-empty (a round's plan): once workers have started, no job waits or runs and no worker session is
+        left, the schedule writes queue/STOP and ends long before its end; with a job still waiting it keeps to the
+        end. Without the option it keeps to the end as before."""
+        self._venv_standin()
+        env, _ = self._fakes(100, False, tag="_empty")
+        env = dict(env, SCHEDULE_POLL_SECONDS="1")
+        script = str(self.node / "node" / "schedule.sh")
+        queue = self.node / "queue"
+        stash = Path(self.tmp.name) / "stash_empty"
+        stash.mkdir()
+        for state in ("pending", "running"):            # jobs other tests left
+            (queue / state).mkdir(parents=True, exist_ok=True)
+            for f in (queue / state).iterdir():
+                shutil.move(str(f), str(stash / f"{state}__{f.name}"))
+        try:
+            (queue / "STOP").unlink(missing_ok=True)
+            now, start = int(time.time()), time.time()
+            out = run(["bash", script, "--end-when-empty", "3", f"{now}:0", f"{now + 3600}:end"], env).stdout
+            self.assertLess(time.time() - start, 30)
+            self.assertIn("GPU 0 started", out)
+            self.assertIn("so the schedule ends before its end", out)
+            self.assertTrue((queue / "STOP").is_file())
+            (queue / "STOP").unlink()
+            job = queue / "pending" / "999_000001__s__r_any.json"
+            job.write_text("{}")
+            for options in (["--end-when-empty"], []):
+                with self.subTest(options=options):
+                    now = int(time.time())
+                    out = run(["bash", script, *options, "3", f"{now}:0", f"{now + 3}:end"], env).stdout
+                    self.assertIn("end: queue/STOP written", out)
+                    self.assertNotIn("ends before its end", out)
+                    (queue / "STOP").unlink()
+            job.unlink()
+            bad = run(["bash", script, "--end-when-empty", "3", f"{now}:0", f"{now + 60}:end"],
+                      dict(env, SCHEDULE_POLL_SECONDS="0"), check=False)
+            self.assertIn("SCHEDULE_POLL_SECONDS=0", bad.stdout)
+            self.assertIn("nothing started", bad.stdout)
+        finally:
+            for f in stash.iterdir():
+                state, name = f.name.split("__", 1)
+                shutil.move(str(f), str(queue / state / name))
+
+    def test_schedule_waits_for_worker_sessions_only_before_it_ends_early(self):
+        """The early end waits while a worker session of the project is left (<project>_gpu<g> or <project>_cpu), and
+        only then: a round's own session, <project>_<round>, may be named gpu_test or cpu2 (the review of
+        2026-10-30 found the schedule then never ended early)."""
+        self._venv_standin()
+        env, _ = self._fakes(100, False, tag="_sessions")
+        listed = Path(self.tmp.name) / "sessions_listed.txt"
+        tmux = Path(self.tmp.name) / "bin_sessions_tmux"
+        tmux.write_text(textwrap.dedent(f"""\
+            #!/usr/bin/env bash
+            case "$1" in
+                ls) cat {listed} 2>/dev/null; exit 0 ;;
+                has-session) exit 1 ;;
+            esac
+            exit 0
+            """))
+        tmux.chmod(0o755)
+        env = dict(env, TMUX_CMD=str(tmux), SCHEDULE_POLL_SECONDS="1")
+        script = str(self.node / "node" / "schedule.sh")
+        queue = self.node / "queue"
+        stash = Path(self.tmp.name) / "stash_sessions"
+        stash.mkdir()
+        for state in ("pending", "running"):
+            (queue / state).mkdir(parents=True, exist_ok=True)
+            for f in (queue / state).iterdir():
+                shutil.move(str(f), str(stash / f"{state}__{f.name}"))
+        try:
+            (queue / "STOP").unlink(missing_ok=True)
+            listed.write_text(f"{self.project}_gpu_test\n{self.project}_cpu2\nother_gpu0\n")
+            now, start = int(time.time()), time.time()
+            out = run(["bash", script, "--end-when-empty", "3", f"{now}:0", f"{now + 3600}:end"], env).stdout
+            self.assertLess(time.time() - start, 30)
+            self.assertIn("so the schedule ends before its end", out)
+            (queue / "STOP").unlink()
+            listed.write_text(f"{self.project}_gpu0\n")
+            now = int(time.time())
+            waiting = subprocess.Popen(["bash", script, "--end-when-empty", "3", f"{now}:0", f"{now + 3600}:end"],
+                                       env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            try:
+                time.sleep(4)
+                self.assertIsNone(waiting.poll(), "it ended while a worker session was left")
+                listed.write_text("")
+                out, _ = waiting.communicate(timeout=30)
+            finally:
+                if waiting.poll() is None:
+                    waiting.kill()
+            self.assertIn("so the schedule ends before its end", out)
+            (queue / "STOP").unlink()
+        finally:
+            for f in stash.iterdir():
+                state, name = f.name.split("__", 1)
+                shutil.move(str(f), str(queue / state / name))
 
     def test_schedule_passes_the_environment_to_its_workers(self):
         """tmux starts a session with the tmux server's environment, so the workers' settings go in the command."""
@@ -722,6 +865,63 @@ class TestNodeLayer(unittest.TestCase):
         self.assertEqual((logs / "2_test.txt").read_bytes(), b"same\n")
 
 
+@unittest.skipUnless(shutil.which("bash") and shutil.which("tar")
+                     and (shutil.which("sha256sum") or shutil.which("shasum")) and (REPO / "node").is_dir(),
+                     "needs bash, tar, sha256sum or shasum and the node/ folder")
+class TestPushOnAComputer(unittest.TestCase):
+    """push.sh is the computer's script, so this runs on a Mac too."""
+
+    def push_with(self, accepts: bool):
+        """push.sh --data with a stand-in tar in front of this computer's own: it records its arguments and either
+        accepts the options that leave out a Mac's extended attributes, metadata and file flags (a Mac's tar, which
+        takes all three) or refuses them (an old tar). Returns the stand-in's calls that packed an archive."""
+        real = shutil.which("tar")
+        with tempfile.TemporaryDirectory() as d:
+            repo, bin_dir, log = Path(d) / "repo", Path(d) / "bin", Path(d) / "tar_calls.txt"
+            shutil.copytree(REPO / "node", repo / "node")
+            shutil.copy(REPO / "project.json", repo / "project.json")
+            (repo / "src" / "sweepkit").mkdir(parents=True)
+            (repo / "src" / "sweepkit" / "__init__.py").write_text("")
+            (repo / "data" / "sample").mkdir(parents=True)
+            (repo / "data" / "sample" / "rows.csv").write_text("a,b\n1,2\n")
+            bin_dir.mkdir()
+            refuse = "" if accepts else 'echo "tar: unrecognized option $a" >&2; exit 64'
+            (bin_dir / "tar").write_text(textwrap.dedent(f"""\
+                #!/usr/bin/env bash
+                echo "$*" >> {shlex.quote(str(log))}
+                kept=()
+                for a in "$@"; do
+                    case "$a" in
+                        --no-xattrs|--no-mac-metadata|--no-fflags) {refuse} ;;
+                        *) kept+=("$a") ;;
+                    esac
+                done
+                exec {shlex.quote(real)} "${{kept[@]}}"
+                """))
+            (bin_dir / "tar").chmod(0o755)
+            env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}", PUSH_DRY_RUN="1", TMPDIR=d)
+            out = run(["bash", str(repo / "node" / "pc" / "push.sh"), "--data", "sample"], env).stdout
+            self.assertIn("code archive ", out)
+            self.assertIn("data archive ", out)
+            # a dry run, the first thing a newcomer runs on a Mac, says that nothing was copied
+            self.assertIn("Nothing was copied (a dry run)", out)
+            self.assertNotIn("Copied to ~/", out)
+            return [call.split() for call in log.read_text().splitlines() if "_incoming/" in call]
+
+    def test_push_leaves_out_what_only_a_macs_tar_records(self):
+        packed = self.push_with(accepts=True)
+        self.assertEqual(len(packed), 2, packed)
+        for call in packed:
+            for option in ("--no-xattrs", "--no-mac-metadata", "--no-fflags"):
+                self.assertIn(option, call)
+
+    def test_push_packs_with_a_tar_that_takes_none_of_those_options(self):
+        packed = self.push_with(accepts=False)
+        self.assertEqual(len(packed), 2, packed)
+        for call in packed:
+            self.assertFalse({"--no-xattrs", "--no-mac-metadata", "--no-fflags"} & set(call), call)
+
+
 def first_line(doc: Path) -> str:
     """The read-only first line on a node: the fenced block of the doc that lists the tmux sessions."""
     blocks = [block.strip() for block in doc.read_text(encoding="utf-8").split("```")[1::2]]
@@ -731,7 +931,7 @@ def first_line(doc: Path) -> str:
     return found[0]
 
 
-@unittest.skipUnless(TOOLS and shutil.which("ps"), "needs bash and ps")
+@unittest.skipUnless(TOOLS and shutil.which("ps"), "needs Linux (the node's first line uses GNU tools), bash and ps")
 class TestFirstLine(unittest.TestCase):
     def test_the_first_line_is_the_same_in_both_docs_and_only_reads(self):
         """The line runs with stand-ins for nvidia-smi, systemctl, tmux and curl in a temporary home folder: it
@@ -767,7 +967,8 @@ class TestFirstLine(unittest.TestCase):
             env = dict(os.environ, HOME=str(home), PATH=f"{bin_dir}:{os.environ['PATH']}")
             done = run(["bash", "-c", line], env, cwd=here)
             out = done.stdout
-            for part in ("--- the largest items in the home folder", "--- CPUs: ", "NVIDIA H100 NVL, 610.57.04",
+            for part in ("the node's local time: ", "--- the largest items in the home folder", "--- CPUs: ",
+                         "NVIDIA H100 NVL, 610.57.04",
                          "--- your tmux sessions\nnone", "--- your crontab\nnone", "--- slurmd: inactive",
                          "python3.12: ", "pypi.nvidia.com: 200", "huggingface.co: 200"):
                 self.assertIn(part, out)

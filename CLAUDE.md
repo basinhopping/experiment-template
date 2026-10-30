@@ -116,7 +116,13 @@ When the person has code (scripts, notebooks, a pipeline):
    every setting it uses, library defaults included, as explicit settings.
 4. Run the template's version on the same sample with the same settings and seed, and compare: for a deterministic
    clustering, adjusted Rand index 1.0 between the two label sets; for a model, the same predictions, or metrics within
-   a tolerance you state with its reason. Record the comparison in `VERIFICATION_LOG.md`.
+   a tolerance you state with its reason (`python tests/laptop_standin.py --compare <script's output>:<its ID
+   column>:<its label column> <run folder>/assignments.csv` compares two label files). Record the comparison in
+   `VERIFICATION_LOG.md`. The template reads tables and passes prepared data on in float32, so a script that computes in
+   float64 can differ on a few rows near a boundary (HDBSCAN on 40,000 rows: 3 rows, adjusted Rand index 0.999845). Then
+   repeat the script's own steps with its input rounded to float32 (`x.astype(np.float32)`, each step's result kept in
+   float32): when that gives the template's labels exactly, the difference is the precision alone; record both
+   comparisons.
 5. Only then vary it: the person's settings become the sweep's base configuration.
 
 ## From a laptop's CPU to a node's GPU
@@ -137,7 +143,9 @@ between the computer and the container. The repository stays on the computer.
    reads it, changes it and writes it back), never by retyping its contents from a tool's output, which can be cut
    short. Most work goes this way.
 2. Work that needs the container (a package the computer's shell cannot install, a long run, many files at once)
-   starts from a snapshot. On the computer, from the repository:
+   starts from a snapshot. When neither shell can install the profile's pins (on 2026-10-30 a proxy refused PyPI in
+   both), the commands for the computer run in the person's own terminal, in the Python 3.12 or 3.13 environment
+   START_HERE.md sets up: one line at a time, as for the node. On the computer, from the repository:
    `python3 src/sweepkit/payload.py snapshot . artifacts/payloads` packs the code items with every file's SHA-256
    (paths after the folder pack only those; `artifacts/` is outside the code and out of git). The tool needs only
    Python 3.8 or newer.
@@ -219,9 +227,12 @@ parameter explicitly, and give each new package an exact pin in the right profil
 ## Reports
 
 Results docs, meeting summaries and the "how it works" page come from `templates/`; docs/REPORTING.md has the
-conventions. They go in `reports/` (kept out of git) and, when the session has a Claude Project, in the project as
-well. Before anyone else reads one: nothing in it its readers should not see, and every number checked against its
-file, for an important document by a separate agent that did not write it.
+conventions. When the session can make Claude artifacts, each is a Claude Docs document (the Docs artifact type):
+one per round, "<Round> Results on <data>", and one per meeting, "Results for the Meeting of <date>", which gathers
+the rounds since the last; never a dashboard or a hand-built HTML page for a round's results. Without artifacts they
+go in `reports/` (kept out of git) and, when the session has a Claude Project, in the project as well. Before anyone
+else reads one: nothing in it its readers should not see, and every number checked against its file, for an
+important document by a separate agent that did not write it.
 
 ## How to answer
 

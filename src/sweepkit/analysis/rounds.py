@@ -88,6 +88,17 @@ def _check_end_time(end_time: str, date: str) -> None:
         raise RoundError(f"--end-time {end_time!r}: at most {max_days * 24} hours ({max_days} days)")
 
 
+def _end_phrase(end_time: str) -> str:
+    """The end as the round's README says it, after "stops them": a time is the node's local time; a relative end
+    counts from the plan's step 3, which reads it with `date -d` when it starts the workers (the dry run's README read
+    "stops them at now + 45 minutes, the node's local time", 2026-10-30)."""
+    found = END_TIME.fullmatch(end_time.strip())
+    if found is not None and found.group("unit"):
+        n, unit = int(found.group("n")), found.group("unit")
+        return f"{n} {unit[:-1] if n == 1 else unit} after they start (the plan's step 3, once the smoke tests pass)"
+    return f"at {end_time.strip()}, the node's local time"
+
+
 def _check_names(round_name: str, date: str) -> None:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,39}", round_name) or "__" in round_name:
         raise RoundError(f"round {round_name!r}: letters, digits, _ and - only")
@@ -183,7 +194,7 @@ def round_new(round_name: str, date: str, question: str, sweep_files: list, work
               "profiles": " ".join(profiles), "sweep_files": " ".join(d.split("  ", 1)[1] for d in digests),
               "sweep_ids": " ".join(ids), "pack_paths": " ".join(f"runs/{i} sweeps/{i}" for i in ids),
               "workers_per_gpu": workers_per_gpu, "gpus": gpus, "gpus_pattern": gpus.replace(",", "|"),
-              "end_time": end_time.strip(), "min_free_gb": min_free_gb,
+              "end_time": end_time.strip(), "end_phrase": _end_phrase(end_time), "min_free_gb": min_free_gb,
               "lines": ", ".join(p.name for p in line_files), "rule_fixed": "not fixed yet"}
     # the plan first, under sweeps/, so that the tree digest written into the lines covers it
     plan_file = root / plan_rel

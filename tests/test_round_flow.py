@@ -24,7 +24,9 @@ from pathlib import Path
 
 from tests.support import REPO
 
-TOOLS = all(shutil.which(t) for t in ("bash", "tar", "sha256sum", "awk", "sed", "tmux"))
+# Linux only, as the node: its scripts use GNU sed, find and tar (a Mac with tmux and sha256sum would fail for that)
+TOOLS = sys.platform.startswith("linux") and all(shutil.which(t) for t in ("bash", "tar", "sha256sum", "awk", "sed",
+                                                                              "tmux"))
 CODE = ["src", "tests", "sweeps", "node", "env", "docs", "templates", "notebooks", "README.md", "START_HERE.md",
         "CLAUDE.md", "TESTING.md", "LICENSE", "project.json", ".gitignore", ".gitattributes"]
 DATE = "20261028"
@@ -37,7 +39,8 @@ def run(command, env, cwd=None, check=True, timeout=600):
     return done
 
 
-@unittest.skipUnless(TOOLS and (REPO / "node").is_dir(), "needs bash, tar, sha256sum, tmux and the node/ folder")
+@unittest.skipUnless(TOOLS and (REPO / "node").is_dir(),
+                     "needs Linux (the node's scripts use GNU tools), bash, tar, sha256sum, tmux and the node/ folder")
 class TestARoundThroughItsLines(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
@@ -66,24 +69,33 @@ class TestARoundThroughItsLines(unittest.TestCase):
         # the node's environment: this Python, with the unit tests and env-check of line 02 stood in for. A worker
         # checks that its GPU is visible, asking torch (or CuPy) when it is installed, and neither sees GPU 99: with
         # torch installed, every worker stopped at once and no job ran (the node, 2026-10-29). So the workers count
-        # the stand-in GPU as visible, as the stand-in nvidia-smi does on a machine without torch or CuPy.
+        # the stand-in GPU as visible, as the stand-in nvidia-smi does on a machine without torch or CuPy. No job may
+        # take a GPU path, though: where cuML is installed (check.sh rapids rapids runs this suite in the rapids
+        # environment), a job on auto would choose cuML's path for GPU 99 and fail (the node, 2026-10-30). So every
+        # command of the template run here finds no GPU path ready, and every job runs on the CPU.
         venv = self.home / "venvs" / f"{self.project}-main" / "bin"
         venv.mkdir(parents=True)
-        visible = ('import runpy, sweepkit.devices; sweepkit.devices.gpu_visible = lambda: True; '
-                   'runpy.run_module("sweepkit.cli", run_name="__main__", alter_sys=True)')
+        no_gpu_path = "sweepkit.devices.gpu_path_ready = lambda gpu: False; "
+        cli = 'runpy.run_module("sweepkit.cli", run_name="__main__", alter_sys=True)'
+        visible = f"import runpy, sweepkit.devices; sweepkit.devices.gpu_visible = lambda: True; {no_gpu_path}{cli}"
+        cpu_only = f"import runpy, sweepkit.devices; {no_gpu_path}{cli}"
         (venv / "python").write_text(textwrap.dedent(f"""\
             #!/usr/bin/env bash
             case "$*" in
                 *"-m unittest"*) echo "Ran 1 tests in 0.0s"; echo; echo "OK"; exit 0 ;;
                 *env-check*) echo "ENV OK"; exit 0 ;;
                 "-m sweepkit.cli worker "*) exec {shlex.quote(sys.executable)} -c {shlex.quote(visible)} "${{@:3}}" ;;
+                "-m sweepkit.cli "*) exec {shlex.quote(sys.executable)} -c {shlex.quote(cpu_only)} "${{@:3}}" ;;
             esac
             exec {shlex.quote(sys.executable)} "$@"
             """))
         for f in (self.bin / "nvidia-smi", self.bin / "systemctl", venv / "python"):
             f.chmod(0o755)
+        # SCHEDULE_POLL_SECONDS: how often the round's schedule looks whether its queue is empty (60 on a node); the
+        # tmux server this test starts passes it to the round's session
         self.env = dict(os.environ, HOME=str(self.home), PATH=f"{self.bin}:{os.environ['PATH']}",
-                        TMUX_TMPDIR=str(base / "tmux"), NVIDIA_SMI_CMD=str(self.bin / "nvidia-smi"))
+                        TMUX_TMPDIR=str(base / "tmux"), NVIDIA_SMI_CMD=str(self.bin / "nvidia-smi"),
+                        SCHEDULE_POLL_SECONDS="2")
         for name in ("TMUX", "CUDA_VISIBLE_DEVICES", "CHECK_GPUS", "ENVIRONMENT", "MIN_FREE_GB", "PYTHONPATH"):
             self.env.pop(name, None)
         self.pc_env = dict(self.env, PYTHONPATH=str(self.pc / "src"))
@@ -184,10 +196,25 @@ class TestARoundThroughItsLines(unittest.TestCase):
         self.assertIn("smoke tests on GPU 99", smoked)
         self.assertIn("SMOKE OK", smoked)
         self.assertIn("ALL DONE", smoked)
-        self.assertIn("step 3: env ENVIRONMENT=main MIN_FREE_GB=1 bash node/schedule.sh 2", chain)
+        self.assertIn("step 3: env ENVIRONMENT=main MIN_FREE_GB=1 bash node/schedule.sh --end-when-empty 2", chain)
         self.assertIn("GPU 99 started: 2 workers", (logs / "3_schedule.txt").read_text())
         # line 04: the status, then line 05: pack once the workers are gone
-        self.assertIn("runs: 45 complete of 45, 0 failed", self.line("04_status.txt"))
+        status = self.line("04_status.txt")
+        self.assertIn("runs: 45 complete of 45, 0 failed", status)
+        # each step's log in short, so the smoke tests and the GPUs show without opening the logs (the dry run,
+        # 2026-10-29: line 03 named these logs and no line showed them)
+        self.assertRegex(status, r"--- logs/rf/2_smoke_enqueue.txt\n[1-9][0-9]* SMOKE OK, 0 SMOKE FAILED\n")
+        for shown in ("--- logs/rf/1_schedule.txt", "SCHEDULE OK", "ALL DONE", "GPU 99 started: 2 workers"):
+            self.assertIn(shown, status)
+        # with no job left, the schedule ends long before its end time (30 minutes away), and the round's session with
+        # it: the next round's install is not refused for a session that only waits
+        deadline = time.time() + 60
+        while run(["tmux", "has-session", "-t", f"={self.project}_rf"], self.env, check=False).returncode == 0:
+            if time.time() > deadline:
+                self.fail("the round's session did not end when its queue was empty")
+            time.sleep(1)
+        self.assertIn("CHAIN DONE", (logs / "chain.txt").read_text())
+        self.assertIn("so the schedule ends before its end", (logs / "3_schedule.txt").read_text())
         packed = self.line("05_pack.txt").splitlines()
         # line 06: the line pack printed to paste on the computer, run as pasted (from any folder: it starts with the
         # cd that push recorded), fetching from the stand-in's outgoing folder, checked file by file

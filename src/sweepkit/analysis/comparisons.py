@@ -19,7 +19,7 @@ from sweepkit.analysis.records import (complete_runs, complete_seeds, configurat
 from sweepkit.analysis.rules import earlier_readings, enforce, find_rule, late_note
 from sweepkit.eval.stats import (NoVariation, UndefinedInDraw, folds_and_seeds_bootstrap, holm, paired_bootstrap,
                                  probability_of_outperforming_by_fold, probability_of_outperforming_interval,
-                                 seed_bootstrap, verdict)
+                                 seed_bootstrap, shown, verdict)
 from sweepkit.registry import METRICS
 from sweepkit.runs.spec import PROTOCOL_SECTIONS
 
@@ -191,11 +191,14 @@ def render(report: dict) -> str:
                              f"{r['b']['label']} ({r['b']['config_hash'][:12]}, {r['b']['sweep_id']}): NOT COMPARED, "
                              f"{r['not_compared']} (counted in Holm with p = 1)")
                 continue
-            lines.append(f"  {r['a']['label']} ({r['a']['config_hash'][:12]}, {r['a']['sweep_id']}) {b['a']:.4f} "
-                         f"against {r['b']['label']} ({r['b']['config_hash'][:12]}, {r['b']['sweep_id']}) {b['b']:.4f}")
+            lines.append(f"  {r['a']['label']} ({r['a']['config_hash'][:12]}, {r['a']['sweep_id']}) {shown(b['a'])} "
+                         f"against {r['b']['label']} ({r['b']['config_hash'][:12]}, {r['b']['sweep_id']}) "
+                         f"{shown(b['b'])}")
             floor = (f" (the least {b['n_boot']} draws can give)"
                      if b.get("p_floor") is not None and b["p_two_sided"] <= b["p_floor"] else "")
-            lines.append(f"    diff {b['difference']:+.4f} [{b['low']:+.4f}, {b['high']:+.4f}]  P(A better) "
+            size = max(abs(b["a"] or 0.0), abs(b["b"] or 0.0))
+            lines.append(f"    diff {shown(b['difference'], 4, True, size)} [{shown(b['low'], 4, True, size)}, "
+                         f"{shown(b['high'], 4, True, size)}]  P(A better) "
                          f"{pb['p_a_beats_b']:.2f} [{pb['low']:.2f}, {pb['high']:.2f}]  p {b['p_two_sided']:.4f}"
                          f"{floor}  Holm p {r['holm_p']:.4f}  {r['verdict']}")
     return "\n".join(lines)

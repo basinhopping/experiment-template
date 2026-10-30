@@ -59,8 +59,10 @@ Sweeps (each checked by expand; files under sweeps/, SHA-256 in sweep_files.sha2
   sweeps/project/round1_screen.json: sweep round1_screen (screen), 5 configurations, 120 jobs, seeds [1, 2, 3]
 
 On the node: the environment main (~/venvs/myproject-main, profiles core unsupervised); the schedule
-starts 3 workers on each of GPUs 0,1 (only those no one else is using) and stops them at
-2026-11-02 08:00, the node's local time, or earlier when less than 15 GB is free in the home folder.
+starts 3 workers on each of GPUs 0,1 (only those no one else is using) and stops them
+at 2026-11-02 08:00, the node's local time,
+or earlier when no job is left (the round's session then ends) or less than 15 GB is free in the home
+folder.
 
 Plan: sweeps/rounds/round1_prep_20261101/plan.txt
   the steps node/chain.sh runs on the node in one tmux session that ends by itself. It lives under sweeps/ so that
@@ -83,9 +85,9 @@ Changes after preparation (each with the time, why, and whether it changes a job
 The lines the person pastes on a node, one file per step; the start line, `artifacts/analyses/round1_prep_20261101/lines/03_start.txt`, for example:
 
 ```
-# 3 of 6: check the schedule, smoke-test and enqueue the round's sweeps, then the workers until the stop time, in one tmux session that ends by itself (node)
+# 3 of 6: check the schedule, smoke-test and enqueue the round's sweeps, then the workers until the queue is empty (at the latest the stop time), in one tmux session that ends by itself (node)
 # shell: bash on the node
-# expect: "myproject_round1 started" and the round's GPUs that are free; within minutes, logs/round1/1_schedule.txt shows "SCHEDULE OK", logs/round1/2_smoke_enqueue.txt "SMOKE OK" for each sweep and "ALL DONE", and logs/round1/3_schedule.txt "GPU <g> started"; after the stop time logs/round1/chain.txt ends with "CHAIN DONE"
+# expect: "myproject_round1 started" and the round's GPUs that are free; within minutes, logs/round1/1_schedule.txt shows "SCHEDULE OK", logs/round1/2_smoke_enqueue.txt "SMOKE OK" for each sweep and "ALL DONE", and logs/round1/3_schedule.txt "GPU <g> started" (line 04 shows these); when no job is left (at the latest at the stop time) logs/round1/chain.txt ends with "CHAIN DONE" and the session is gone
 # stop if: "the tree is not", "slurmd is running", "a session of myproject is running", "jobs in queue/running", "GB free, the round's floor" or "no free GPU": stop here and paste the output
 cd ~/myproject && mkdir -p logs/round1 && { D=$(bash node/tree_digest.sh .) && G=$(bash node/free_gpus.sh 2>/dev/null | grep -xE '0|1' | paste -sd, -) && if [ "$D" != <sha256> ]; then echo "the tree is not <sha256> but $D: stop here and paste this"; elif systemctl is-active --quiet slurmd 2>/dev/null; then echo "Slurm's slurmd is running, so Slurm may give these GPUs to batch jobs: stop here and paste this"; elif tmux ls -F '#{session_name}' 2>/dev/null | grep -q '^myproject_'; then echo "a session of myproject is running: stop here and paste this"; tmux ls; elif [ "$(ls queue/running 2>/dev/null | wc -l)" != 0 ]; then echo "jobs in queue/running: stop here and paste this"; elif ! bash node/disk_check.sh 15 > /dev/null; then echo "less than 15 GB free, the round's floor: stop here and paste this"; df -h ~ | tail -1; elif [ -z "$G" ]; then echo "no free GPU among the round's (0,1): stop here and paste this"; nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv,noheader; else rm -f queue/STOP queue/STOP_gpu*; tmux new -d -s myproject_round1 "bash node/chain.sh sweeps/rounds/round1_prep_20261101/plan.txt" && echo "myproject_round1 started; free GPUs now: $G"; df -h ~ | tail -1; fi; } 2>&1 | tee -a logs/round1/03_start.txt
 ```
@@ -110,19 +112,25 @@ still queued from earlier rounds keep running under their own rules.
 
 2. Reading
    Label-free files only first: analyze ranks the configurations by silhouette (larger is better) and
-   compares each with the base; the highest silhouette among configurations whose stability across
-   seeds and subsamples is at least 0.9 is selected with select. Only then reveal-report reads that
-   one configuration's agreement with the planted groups (ARI, AMI). No comparison family is read on
-   the reveal files. Runs not finished at the reading are left out and named.
+   compares each with the base. select takes the highest, read with its stability across seeds and
+   subsamples and the number of clusters it finds: among the configurations whose intervals overlap
+   the highest's, the most stable; if a configuration more stable by over 0.05 ranks below the
+   choice, the round stops for a look at the data before any choice. Only then reveal-report reads
+   that one configuration's agreement with the planted groups (ARI, AMI). No comparison family is
+   read on the reveal files. Runs not finished at the reading are left out and named.
    (Which files are read, in which order: validation or label-free files first, with analyze; then select; only then
    the test or reveal files of the selected configurations, with test-report or reveal-report. Which comparisons
    are made, as families (the families file given to rule-fix: paired bootstrap, Holm within each family), on which
-   seeds, and what happens to runs not finished at the reading time.)
+   seeds, and what happens to runs not finished at the reading time. How select chooses: the criterion, and for
+   label-free work the stability and the number of groups found, read together (a floor fixed in advance can turn
+   away the best: in the template's dry run a stability floor of 0.8 turned away, in two of ten sweeps, the
+   configuration nearest the planted groups); what decides a tie (for example, of two whose intervals overlap, the
+   more stable, then the simpler); and what happens when the most stable is not the one the criterion ranks first.)
 
 3. Stop condition
-   A configuration that wins on silhouette with stability of at least 0.9 goes to a final run on
-   every row with five seeds. If the winner's stability is below 0.9, or the number of clusters
-   it finds differs between seeds, stop and look at the data before any final run.
+   The choice goes to a final run on every row with five seeds. If its stability is below 0.9, or
+   the number of clusters it finds differs between seeds, stop and look at the data before any
+   final run.
    (Written before the results: which result is a plain substitution, for example "a configuration that beats the
    baseline on validation goes to confirmation on five new seeds", and which result changes the plan, for example
    "if the leak control is above chance by more than its seed spread, stop and check the split".)
@@ -170,28 +178,28 @@ baseline 87132aa14cf0: seeds [1, 2, 3], silhouette 0.5158 [0.5158, 0.5158], SD 0
 top 5 of 5 by silhouette; difference = configuration minus baseline:
   0.5158 [0.5158, 0.5158]  (baseline)  | 87132aa14cf0 base: base
       calinski_harabasz 959.7177  n_clusters 4.0000
-      stability (adjusted Rand index) 1.000 over 108 pairs
-  0.5157 [0.5157, 0.5157]  diff -0.0001 bootstrap [-0.0002, -0.0000] fold range [-0.0003, +0.0000]  P(better) 0.19  Holm p 0.062  no detectable difference  | 34b2805e9948 methods: gmm
+      stability (adjusted Rand index) 1.000 over 108 pairs: across seeds 1.000 (24 pairs), across folds 1.000 (84 pairs)
+  0.5157 [0.5157, 0.5157]  diff -0.0001188 bootstrap [-0.0001996, -0.00004240] fold range [-0.0002763, +0.0000]  P(better) 0.19  Holm p 0.062  no detectable difference  | 34b2805e9948 methods: gmm
       calinski_harabasz 959.4963  n_clusters 4.0000
-      stability (adjusted Rand index) 0.999 over 108 pairs
-  0.5155 [0.5155, 0.5155]  diff -0.0003 bootstrap [-0.0006, -0.0001] fold range [-0.0014, +0.0000]  P(better) 0.06  Holm p 0.031  worse  | 2d33b7605625 methods: ward
+      stability (adjusted Rand index) 0.999 over 108 pairs: across seeds 1.000 (24 pairs), across folds 0.998 (84 pairs)
+  0.5155 [0.5155, 0.5155]  diff -0.0003014 bootstrap [-0.0006409, -0.00009572] fold range [-0.0014, +0.0000]  P(better) 0.06  Holm p 0.031  worse  | 2d33b7605625 methods: ward
       calinski_harabasz 958.7874  n_clusters 4.0000
-      stability (adjusted Rand index) 0.998 over 108 pairs
+      stability (adjusted Rand index) 0.998 over 108 pairs: across seeds 1.000 (24 pairs), across folds 0.998 (84 pairs)
   0.4846 [0.4833, 0.4859]  diff -0.0312 bootstrap [-0.0329, -0.0293] fold range [-0.0343, -0.0273]  P(better) 0.00  Holm p 0.031  worse  | 7c82ceec2901 k: model.n_clusters=3
       calinski_harabasz 686.3530  n_clusters 3.0000
-      stability (adjusted Rand index) 0.837 over 108 pairs
+      stability (adjusted Rand index) 0.837 over 108 pairs: across seeds 0.911 (24 pairs), across folds 0.815 (84 pairs)
   0.4418 [0.4388, 0.4448]  diff -0.0740 bootstrap [-0.0769, -0.0715] fold range [-0.0796, -0.0704]  P(better) 0.00  Holm p 0.031  worse  | e8bfec93548b k: model.n_clusters=5
       calinski_harabasz 788.7254  n_clusters 5.0000
-      stability (adjusted Rand index) 0.892 over 108 pairs
+      stability (adjusted Rand index) 0.892 over 108 pairs: across seeds 0.906 (24 pairs), across folds 0.888 (84 pairs)
 saved <repo>/artifacts/analysis/round1_screen_<utc>
 ```
 
 A difference can be detectable and still too small to matter: read the difference and its interval, not only the verdict.
 
-The RULE says: the highest silhouette among configurations with stability of at least 0.9. That is `87132aa14cf0` (base: base). `select` records it:
+The RULE says: the highest silhouette, read with its stability and the number of clusters it finds. That is `87132aa14cf0` (base: base), stability 1.000, 4.0 clusters on average; no configuration below it is more stable by over 0.05. `select` records it:
 
 ```
-$ python -m sweepkit.cli select --sweep round1_screen --config 87132aa14c --name round1_choice --reason "highest silhouette among the configurations with stability of at least 0.9, as the RULE says"
+$ python -m sweepkit.cli select --sweep round1_screen --config 87132aa14c --name round1_choice --reason "highest silhouette, read with its stability and number of clusters, as the RULE says"
 selected 87132aa14cf0 of round1_screen (base), silhouette 0.5158, rank 1 of 5, from round1_screen_<utc>
 saved <repo>/artifacts/selections/round1_choice
 ```
@@ -201,7 +209,7 @@ saved <repo>/artifacts/selections/round1_choice
 ```
 $ python -m sweepkit.cli reveal-report --selection round1_choice --confidence 0.95
 reveal results of selection round1_choice: round1_screen / 87132aa14cf0 (base), seeds [1, 2, 3]
-chosen because: highest silhouette among the configurations with stability of at least 0.9, as the RULE says (recorded <utc>; RULE round1_<utc>)
+chosen because: highest silhouette, read with its stability and number of clusters, as the RULE says (recorded <utc>; RULE round1_<utc>)
   ari 1.0000 [1.0000, 1.0000] (95% t interval over seeds), SD 0.0000
   ami 1.0000 [1.0000, 1.0000] (95% t interval over seeds), SD 0.0000
 saved <repo>/artifacts/reveal_reports/round1_choice_<utc>
@@ -275,8 +283,10 @@ Sweeps (each checked by expand; files under sweeps/, SHA-256 in sweep_files.sha2
   sweeps/project/round2_screen.json: sweep round2_screen (screen), 4 configurations, 72 jobs, seeds [1, 2, 3]
 
 On the node: the environment main (~/venvs/myproject-main, profiles core unsupervised); the schedule
-starts 3 workers on each of GPUs 0,1 (only those no one else is using) and stops them at
-2026-11-02 08:00, the node's local time, or earlier when less than 15 GB is free in the home folder.
+starts 3 workers on each of GPUs 0,1 (only those no one else is using) and stops them
+at 2026-11-02 08:00, the node's local time,
+or earlier when no job is left (the round's session then ends) or less than 15 GB is free in the home
+folder.
 
 Plan: sweeps/rounds/round2_prep_20261101/plan.txt
   the steps node/chain.sh runs on the node in one tmux session that ends by itself. It lives under sweeps/ so that
@@ -300,9 +310,9 @@ Changes after preparation (each with the time, why, and whether it changes a job
 The lines the person pastes on a node, one file per step; the start line, `artifacts/analyses/round2_prep_20261101/lines/03_start.txt`, for example:
 
 ```
-# 3 of 6: check the schedule, smoke-test and enqueue the round's sweeps, then the workers until the stop time, in one tmux session that ends by itself (node)
+# 3 of 6: check the schedule, smoke-test and enqueue the round's sweeps, then the workers until the queue is empty (at the latest the stop time), in one tmux session that ends by itself (node)
 # shell: bash on the node
-# expect: "myproject_round2 started" and the round's GPUs that are free; within minutes, logs/round2/1_schedule.txt shows "SCHEDULE OK", logs/round2/2_smoke_enqueue.txt "SMOKE OK" for each sweep and "ALL DONE", and logs/round2/3_schedule.txt "GPU <g> started"; after the stop time logs/round2/chain.txt ends with "CHAIN DONE"
+# expect: "myproject_round2 started" and the round's GPUs that are free; within minutes, logs/round2/1_schedule.txt shows "SCHEDULE OK", logs/round2/2_smoke_enqueue.txt "SMOKE OK" for each sweep and "ALL DONE", and logs/round2/3_schedule.txt "GPU <g> started" (line 04 shows these); when no job is left (at the latest at the stop time) logs/round2/chain.txt ends with "CHAIN DONE" and the session is gone
 # stop if: "the tree is not", "slurmd is running", "a session of myproject is running", "jobs in queue/running", "GB free, the round's floor" or "no free GPU": stop here and paste the output
 cd ~/myproject && mkdir -p logs/round2 && { D=$(bash node/tree_digest.sh .) && G=$(bash node/free_gpus.sh 2>/dev/null | grep -xE '0|1' | paste -sd, -) && if [ "$D" != <sha256> ]; then echo "the tree is not <sha256> but $D: stop here and paste this"; elif systemctl is-active --quiet slurmd 2>/dev/null; then echo "Slurm's slurmd is running, so Slurm may give these GPUs to batch jobs: stop here and paste this"; elif tmux ls -F '#{session_name}' 2>/dev/null | grep -q '^myproject_'; then echo "a session of myproject is running: stop here and paste this"; tmux ls; elif [ "$(ls queue/running 2>/dev/null | wc -l)" != 0 ]; then echo "jobs in queue/running: stop here and paste this"; elif ! bash node/disk_check.sh 15 > /dev/null; then echo "less than 15 GB free, the round's floor: stop here and paste this"; df -h ~ | tail -1; elif [ -z "$G" ]; then echo "no free GPU among the round's (0,1): stop here and paste this"; nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv,noheader; else rm -f queue/STOP queue/STOP_gpu*; tmux new -d -s myproject_round2 "bash node/chain.sh sweeps/rounds/round2_prep_20261101/plan.txt" && echo "myproject_round2 started; free GPUs now: $G"; df -h ~ | tail -1; fi; } 2>&1 | tee -a logs/round2/03_start.txt
 ```
@@ -334,7 +344,11 @@ still queued from earlier rounds keep running under their own rules.
    (Which files are read, in which order: validation or label-free files first, with analyze; then select; only then
    the test or reveal files of the selected configurations, with test-report or reveal-report. Which comparisons
    are made, as families (the families file given to rule-fix: paired bootstrap, Holm within each family), on which
-   seeds, and what happens to runs not finished at the reading time.)
+   seeds, and what happens to runs not finished at the reading time. How select chooses: the criterion, and for
+   label-free work the stability and the number of groups found, read together (a floor fixed in advance can turn
+   away the best: in the template's dry run a stability floor of 0.8 turned away, in two of ten sweeps, the
+   configuration nearest the planted groups); what decides a tie (for example, of two whose intervals overlap, the
+   more stable, then the simpler); and what happens when the most stable is not the one the criterion ranks first.)
 
 3. Stop condition
    The control must sit near chance (balanced accuracy near 0.5); if it is above 0.6, stop and

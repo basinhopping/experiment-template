@@ -28,15 +28,18 @@ PROFILES = {
     },
     "torch": {
         "for": "neural networks (the torch family): MLPs, CNNs, RNNs, Transformers, spiking models, autoencoders",
-        "environment": "main", "default": "everywhere", "licences": "BSD-3-Clause",
+        "environment": "main", "default": "everywhere but an Intel Mac", "licences": "BSD-3-Clause",
         "platforms": "Linux (CUDA 13 from PyPI; cu126 index for GPUs older than Turing), Windows (cu130 index for an "
-                     "NVIDIA GPU, else CPU), Mac (CPU and MPS)",
+                     "NVIDIA GPU, else CPU), a Mac with Apple silicon (CPU and MPS; PyTorch has published no build "
+                     "for an Intel Mac since 2.2)",
         "imports": ("torch",),
     },
     "unsupervised": {
         "for": "HDBSCAN (hdbscan, fast_hdbscan), UMAP, openTSNE, PaCMAP, FAISS and pynndescent neighbours, tslearn",
-        "environment": "main", "default": "everywhere", "licences": "BSD, MIT, Apache-2.0 (permissive)",
-        "platforms": "Windows, Mac (FAISS needs macOS 14), Linux",
+        "environment": "main", "default": "everywhere but an Intel Mac",
+        "licences": "BSD, MIT, Apache-2.0 (permissive)",
+        "platforms": "Windows, Linux, and a Mac with Apple silicon (numba and llvmlite publish no build of these "
+                     "versions for an Intel Mac; FAISS needs macOS 14)",
         "imports": ("numba", "hdbscan", "fast_hdbscan", "umap", "pynndescent", "openTSNE", "pacmap", "faiss",
                     "tslearn"),
     },
@@ -70,7 +73,8 @@ PROFILES = {
         "imports": ("torch_geometric",),
     },
     "singlecell": {
-        "for": "scanpy, anndata and scvi-tools on the CPU", "environment": "main", "default": "on request",
+        "for": "scanpy, anndata and scvi-tools on the CPU (scanpy_leiden also needs igraph, in extras: GPL)",
+        "environment": "main", "default": "on request",
         "licences": "BSD-3-Clause", "platforms": "all; Python 3.12 or 3.13", "imports": ("scanpy", "anndata", "scvi"),
     },
     "search": {
@@ -215,8 +219,9 @@ def profiles_doc() -> str:
              "| Gradient boosting | core, boosting |",
              "| Pretrained Hugging Face models | core, torch, pretrained |",
              "| Bayesian search (propose) | core, search |",
-             "| Genie, Lumbermark, leidenalg, FasterPAM, FlowSOM, Harmony, ComBat, PHATE, TriMap | core, extras (read "
-             "the licences first) |", "",
+             "| Genie, Lumbermark, leidenalg, FasterPAM, Harmony, PHATE, TriMap; igraph for scanpy_leiden on the CPU; "
+             "the FlowSOM and ComBat packages (the template's own FlowSOM and ComBat need only core) | core, extras "
+             "(read the licences first) |", "",
              "## The profiles", ""]
     for name, p in PROFILES.items():
         lines += [f"### {name}", "", f"For: {p['for']}.", "",
@@ -232,7 +237,8 @@ def profiles_doc() -> str:
     lines += ["## Setup lines", "",
               "Home, Linux or Mac: `bash env/setup.sh main core torch unsupervised`.", "",
               "Home, Windows: `powershell -ExecutionPolicy Bypass -File env\\setup.ps1 -Environment main -Profiles "
-              "\"core,torch,unsupervised\" -TorchIndex cpu` (or `-TorchIndex cu130` with an NVIDIA GPU).", "",
+              "\"core,torch,unsupervised\" -TorchIndex cpu` (or `-TorchIndex cu130` with an NVIDIA GPU; add "
+              "`-Python 3.13` when the py launcher lists 3.13 and not 3.12: `py -0`).", "",
               "Node: `bash node/setup_env.sh main core torch unsupervised`, then `bash node/setup_env.sh rapids "
               "rapids`.", ""]
     return "\n".join(lines)

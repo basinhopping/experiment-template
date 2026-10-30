@@ -69,13 +69,15 @@ ROUND1_RULE = {
                  "   on 8 fixed subsamples of 80% of the rows with seeds 1, 2 and 3, z-scored, on the CPU. No earlier\n"
                  "   result chose any of these settings.",
     "reading": "Label-free files only first: analyze ranks the configurations by silhouette (larger is better) and\n"
-               "   compares each with the base; the highest silhouette among configurations whose stability across\n"
-               "   seeds and subsamples is at least 0.9 is selected with select. Only then reveal-report reads that\n"
-               "   one configuration's agreement with the planted groups (ARI, AMI). No comparison family is read on\n"
-               "   the reveal files. Runs not finished at the reading are left out and named.",
-    "stop_condition": "A configuration that wins on silhouette with stability of at least 0.9 goes to a final run on\n"
-                      "   every row with five seeds. If the winner's stability is below 0.9, or the number of clusters\n"
-                      "   it finds differs between seeds, stop and look at the data before any final run.",
+               "   compares each with the base. select takes the highest, read with its stability across seeds and\n"
+               "   subsamples and the number of clusters it finds: among the configurations whose intervals overlap\n"
+               "   the highest's, the most stable; if a configuration more stable by over 0.05 ranks below the\n"
+               "   choice, the round stops for a look at the data before any choice. Only then reveal-report reads\n"
+               "   that one configuration's agreement with the planted groups (ARI, AMI). No comparison family is\n"
+               "   read on the reveal files. Runs not finished at the reading are left out and named.",
+    "stop_condition": "The choice goes to a final run on every row with five seeds. If its stability is below 0.9, or\n"
+                      "   the number of clusters it finds differs between seeds, stop and look at the data before any\n"
+                      "   final run.",
     "limits": "One synthetic dataset with round clusters, which favours silhouette and k-means; settings chosen on\n"
               "   the same subsamples they are judged on (optimistic until the final run); no other criterion read.",
 }
@@ -262,14 +264,35 @@ def _read_round1(r: Runner) -> list:
     out += ["A difference can be detectable and still too small to matter: read the difference and its interval, "
             "not only the verdict.", ""]
     report = json.loads((_latest(r, "artifacts/analysis", "round1_screen_") / "report.json").read_text())
-    stable = [s for s in report["ranked"] if s.get("stability", {}).get("value") is not None
-              and s["stability"]["value"] >= 0.9]
-    chosen = stable[0]
-    reason = "highest silhouette among the configurations with stability of at least 0.9, as the RULE says"
+    ranked = [s for s in report["ranked"] if s.get("value") is not None]
+
+    def stability(s):
+        return (s.get("stability") or {}).get("value") or 0.0
+
+    def overlap(a, b):
+        return bool(a.get("interval") and b.get("interval") and a["interval"]["low"] <= b["interval"]["high"]
+                    and b["interval"]["low"] <= a["interval"]["high"])
+
+    # the RULE's reading: among the configurations whose intervals overlap the highest's, the most stable; one more
+    # stable by over 0.05 that ranks below the choice stops the round (the page would then contradict its RULE, so
+    # the example stops too)
+    if not ranked:
+        raise RuntimeError("the example round's analysis ranked no configuration")
+    tied = [s for s in ranked if s is ranked[0] or overlap(ranked[0], s)]
+    chosen = max(tied, key=stability)
+    below = ranked[ranked.index(chosen) + 1:]
+    if any(stability(s) > stability(chosen) + 0.05 for s in below):
+        raise RuntimeError("the example round's RULE stops here: a configuration more stable by over 0.05 ranks below "
+                           "its choice")
+    clusters = (chosen.get("metrics") or {}).get("n_clusters")
+    reason = "highest silhouette, read with its stability and number of clusters, as the RULE says"
     selected = r.cli("select", "--sweep", "round1_screen", "--config", chosen["config_hash"][:10], "--name",
                      "round1_choice", "--reason", reason)
-    out += [f"The RULE says: the highest silhouette among configurations with stability of at least 0.9. That is "
-            f"`{chosen['config_hash'][:12]}` ({chosen['stage']}: {chosen['label']}). `select` records it:", "",
+    out += [f"The RULE says: the highest silhouette, read with its stability and the number of clusters it finds. "
+            f"That is `{chosen['config_hash'][:12]}` ({chosen['stage']}: {chosen['label']}), stability "
+            f"{stability(chosen):.3f}, "
+            + (f"{clusters:.1f} clusters on average" if clusters is not None else "its number of clusters not recorded")
+            + "; no configuration below it is more stable by over 0.05. `select` records it:", "",
             _command(f'select --sweep round1_screen --config {chosen["config_hash"][:10]} --name round1_choice '
                      f'--reason "{reason}"', selected),
             "### 5. Only now, the files that judge the choice", ""]

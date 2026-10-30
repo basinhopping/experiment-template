@@ -252,6 +252,11 @@ class TestEnqueueAndQueue(unittest.TestCase):
         self.assertEqual(len(supervised), 1)
         self.assertIn("one seed's ranking does not predict another's", supervised[0])
         self.assertEqual(warnings_for({"purpose": "learning"}, {"family": "estimator", "stages": stages}), [])
+        # a final run on every row has one fold, so no subsamples to compare over
+        final = warnings_for({"purpose": "final", "folds": ["all"]}, {"family": "clusterer", "stages": stages})
+        self.assertEqual(len(final), 1)
+        self.assertIn("on one fold", final[0])
+        self.assertNotIn("subsamples", final[0])
 
 
 if __name__ == "__main__":

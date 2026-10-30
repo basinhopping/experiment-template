@@ -17,7 +17,9 @@ each series, which tslearn expects to be done beforehand: normalize does it insi
 
 spectral_biclustering and spectral_coclustering (scikit-learn) group rows and columns at once; the row groups are
 the clusters, and the column groups are written as column_labels.npy. Both take non-negative data, as counts or
-expression values are.
+expression values are. Co-clustering (and biclustering with method scale or bistochastic) divides by each row's and
+column's sum, so a row or column of zeros (a word no document of a subsample uses) is left out of the fit and labelled
+-1, and info() counts them.
 
 lda fits latent Dirichlet allocation (scikit-learn) to counts, such as words per document; each row's cluster is
 its most likely topic, its soft probability that topic's share, and the model's perplexity on the fit rows is
@@ -325,20 +327,30 @@ class SpectralBiclustering(Clusterer):
     def fit(self, x):
         from sklearn.cluster import SpectralBiclustering as S
 
+        x = np.asarray(x, dtype=np.float64)
+        if self.s.method != "log":
+            # scikit-learn shifts the data so that its smallest value is 0 (make_nonnegative), then divides by row
+            # and column sums: shifted here, so the rows and columns left out are those that are 0 after the shift
+            x = x - min(float(x.min()), 0.0)
+        self.rows, self.cols = _nonzero_parts(x, self.s.n_clusters, "spectral_biclustering",
+                                              needed=self.s.method != "log")
         self.model = S(**merged_kwargs({"n_clusters": self.s.n_clusters, "method": self.s.method,
                                         "n_components": self.s.n_components, "n_best": self.s.n_best,
                                         "n_init": self.s.n_init, "random_state": self.seed}, self.s.extra,
                                        "spectral_biclustering"))
-        self.model.fit(np.asarray(x, dtype=np.float64))
+        self.model.fit(x[np.ix_(self.rows, self.cols)])
 
     def labels(self):
-        return np.asarray(self.model.row_labels_, dtype=np.int64)
+        return _spread(self.rows, self.model.row_labels_)
+
+    def info(self):
+        return _left_out(self.rows, self.cols)
 
     def params(self):
         return library_params(self.model)
 
     def extra_files(self):
-        return {"column_labels.npy": np.asarray(self.model.column_labels_, dtype=np.int64)}
+        return {"column_labels.npy": _spread(self.cols, self.model.column_labels_)}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -359,18 +371,49 @@ class SpectralCoclustering(Clusterer):
         x = np.asarray(x, dtype=np.float64)
         if (x < 0).any():
             raise ValueError("spectral_coclustering takes non-negative data; leave out scaling to z-scores")
+        self.rows, self.cols = _nonzero_parts(x, self.s.n_clusters, "spectral_coclustering", needed=True)
         self.model = S(**merged_kwargs({"n_clusters": self.s.n_clusters, "n_init": self.s.n_init,
                                         "random_state": self.seed}, self.s.extra, "spectral_coclustering"))
-        self.model.fit(x)
+        self.model.fit(x[np.ix_(self.rows, self.cols)])
 
     def labels(self):
-        return np.asarray(self.model.row_labels_, dtype=np.int64)
+        return _spread(self.rows, self.model.row_labels_)
+
+    def info(self):
+        return _left_out(self.rows, self.cols)
 
     def params(self):
         return library_params(self.model)
 
     def extra_files(self):
-        return {"column_labels.npy": np.asarray(self.model.column_labels_, dtype=np.int64)}
+        return {"column_labels.npy": _spread(self.cols, self.model.column_labels_)}
+
+
+def _nonzero_parts(x: np.ndarray, n_clusters: int, name: str, needed: bool) -> tuple:
+    """The rows and the columns to fit: those that hold a value other than 0. scikit-learn's co-clustering, and its
+    biclustering with method scale or bistochastic, divide by the square root of each row's and each column's sum, so
+    a row or column of zeros makes infinities and the fit stops with "array must not contain infs or NaNs" (the node,
+    2026-10-30: word counts, 26 of 200 words in no document). Such a row carries nothing to group it by, so it is left
+    out and labelled -1. needed False (biclustering's log method, which shifts the values above 0 first): every row
+    and column is fitted, as before."""
+    if not needed:
+        return np.ones(x.shape[0], dtype=bool), np.ones(x.shape[1], dtype=bool)
+    rows, cols = (x != 0).any(axis=1), (x != 0).any(axis=0)
+    if rows.sum() < n_clusters or cols.sum() < n_clusters:
+        raise ValueError(f"{name}: {int(rows.sum())} rows and {int(cols.sum())} columns hold a value other than 0, "
+                         f"fewer than n_clusters ({n_clusters})")
+    return rows, cols
+
+
+def _spread(kept: np.ndarray, labels) -> np.ndarray:
+    """Labels of the kept rows (or columns) in place, -1 for those left out."""
+    out = np.full(kept.size, -1, dtype=np.int64)
+    out[kept] = np.asarray(labels, dtype=np.int64)
+    return out
+
+
+def _left_out(rows: np.ndarray, cols: np.ndarray) -> dict:
+    return {"rows_left_out": int((~rows).sum()), "columns_left_out": int((~cols).sum())}
 
 
 @dataclasses.dataclass(frozen=True)

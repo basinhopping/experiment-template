@@ -308,6 +308,39 @@ class TestOtherMethods(unittest.TestCase):
             self.assertGreaterEqual(ari(truth, model.labels()), 0.95, raw["name"])                       # 1.000
             self.assertGreaterEqual(ari(columns, model.extra_files()["column_labels.npy"]), 0.95, raw["name"])
 
+    def test_coclustering_leaves_out_rows_and_columns_of_zeros(self):
+        """A word no document uses made scikit-learn's normalization divide by 0 (the node, 2026-10-30): such columns,
+        and rows of zeros, are left out and labelled -1; the rest is grouped as before."""
+        import numpy as np
+
+        x, truth, made = planted("biclusters", 300, 30, 3, 1.0, False)
+        columns = np.array(made["columns"]["column_truth"][0].split(","))
+        data = np.abs(x)
+        data[:, [4, 17]] = 0.0
+        data[[10, 200], :] = 0.0
+        for raw in ({"name": "spectral_coclustering", "n_clusters": 3, "n_init": 10, "extra": {}},
+                    {"name": "spectral_biclustering", "n_clusters": 3, "method": "bistochastic", "n_components": 6,
+                     "n_best": 3, "n_init": 10, "extra": {}}):
+            model = fitted(raw, data)
+            labels, column_labels = model.labels(), model.extra_files()["column_labels.npy"]
+            self.assertEqual((labels[[10, 200]].tolist(), column_labels[[4, 17]].tolist()), ([-1, -1], [-1, -1]))
+            self.assertEqual(model.info(), {"rows_left_out": 2, "columns_left_out": 2})
+            rows, cols = labels >= 0, column_labels >= 0
+            self.assertGreaterEqual(ari(np.asarray(truth)[rows], labels[rows]), 0.95, raw["name"])         # 1.000
+            self.assertGreaterEqual(ari(columns[cols], column_labels[cols]), 0.95, raw["name"])
+        with self.assertRaisesRegex(ValueError, "fewer than n_clusters"):
+            fitted({"name": "spectral_coclustering", "n_clusters": 3, "n_init": 1, "extra": {}}, np.eye(30, 2))
+        # biclustering takes negative data and shifts it above 0 first: a row at the smallest value becomes a row of
+        # zeros after the shift and is left out; a column of zeros among negative values is not
+        shifted = x.copy()
+        shifted[:, 3] = 0.0
+        shifted[7, :] = x.min()
+        model = fitted({"name": "spectral_biclustering", "n_clusters": 3, "method": "scale", "n_components": 6,
+                        "n_best": 3, "n_init": 10, "extra": {}}, shifted)
+        self.assertEqual(model.labels()[7], -1)
+        self.assertNotEqual(model.extra_files()["column_labels.npy"][3], -1)
+        self.assertEqual(model.info(), {"rows_left_out": 1, "columns_left_out": 0})
+
     def test_lda_topics(self):
         import numpy as np
 

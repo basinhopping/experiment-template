@@ -74,6 +74,17 @@ class TestProfile(unittest.TestCase):
             self.assertIn("~$sheet.xlsx", report["leftovers"])
             self.assertIn(".DS_Store", report["leftovers"])
             self.assertEqual([sorted(c) for c in report["case_collisions"]], [["A.CSV", "a.csv"]])
+            # a .txt counts as a table when it reads as one, and a README never
+            (folder / "README.txt").write_text("What the files hold, one per line, with commas, here and there.\n")
+            (folder / "notes.txt").write_text("plain words\n")
+            (folder / "values.txt").write_text("row_id,v\n1,2\n")
+            (folder / "tabs.txt").write_text("row_id\tv\n1\t2\n")          # profile-data reads .txt with commas
+            (folder / "LICENSE.txt").write_text("Copyright (c) 2020, The Authors\n\nPermission is granted, free "
+                                                "of charge, to any person, as follows.\n")
+            tables = profile("raw", None, None, None, None, 3)["tables"]
+            self.assertIn("values.txt", tables)
+            for prose in ("README.txt", "notes.txt", "tabs.txt", "LICENSE.txt"):
+                self.assertNotIn(prose, tables)
 
     def test_table_columns_ids_and_join(self):
         from sweepkit.data.profile import profile

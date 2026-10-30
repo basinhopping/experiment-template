@@ -7,7 +7,9 @@
 set -euo pipefail
 cd "${1:?usage: tree_digest.sh <repository folder>}"
 # sha256sum on Linux; a Mac may have only shasum, which prints the same "<hash>  <path>" lines. GNU xargs runs its
-# command once on empty input unless given -r; a Mac's xargs never does, and an older one refuses -r.
+# command once on empty input unless given -r; a Mac's xargs never does, and an older one refuses -r. Git Bash's
+# sha256sum reads in binary mode and marks it, "<hash> *<path>" (the same tree gave another digest there, 2026-10-29):
+# sed puts back the two spaces.
 if command -v sha256sum >/dev/null 2>&1; then SHA="sha256sum"; else SHA="shasum -a 256"; fi
 if xargs -r true < /dev/null > /dev/null 2>&1; then XARGS_R="-r"; else XARGS_R=""; fi
 ITEMS="src tests sweeps node env docs templates notebooks README.md START_HERE.md CLAUDE.md TESTING.md LICENSE
@@ -21,4 +23,4 @@ if [ "${#present[@]}" -eq 0 ]; then printf '' | $SHA | cut -c1-64; exit 0; fi
 find "${present[@]}" \( -name __pycache__ -o -name '*.pyc' -o -name .ipynb_checkpoints -o -name .pytest_cache \
     -o -name .mypy_cache -o -name .ruff_cache -o -name .DS_Store -o -name Thumbs.db -o -name '*.egg-info' \) -prune \
     -o -type f -print0 \
-    | LC_ALL=C sort -z | xargs -0 $XARGS_R $SHA | cut -c1-16,65- | $SHA | cut -c1-64
+    | LC_ALL=C sort -z | xargs -0 $XARGS_R $SHA | cut -c1-16,65- | sed 's/^\(.\{16\}\) \*/\1  /' | $SHA | cut -c1-64

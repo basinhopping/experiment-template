@@ -31,6 +31,8 @@
 
 Every function takes an explicit numpy Generator, so results are reproducible.
 """
+import math
+
 import numpy as np
 
 
@@ -318,6 +320,49 @@ def verdict(difference: float, adjusted_p: float, alpha: float, direction: str) 
         return "no detectable difference"
     a_better = difference > 0 if direction == "max" else difference < 0
     return "better" if a_better else "worse"
+
+
+def shown(value, digits: int = 4, sign: bool = False, scale=None) -> str:
+    """A value as a printed report shows it: `digits` decimals, or `digits` significant digits when it is not 0 and
+    smaller than the last decimal shows (the excess-mass criterion on six columns is about 1e-4: four decimals
+    printed 0.0000 for every detector, the dry run of 2026-10-30). Rounded once, half up, from the exact value, as
+    round_half_up and the documents round it. Plain decimals down to 1e-12, so that one line does not mix 0.0001188
+    with 4.24e-05; below that an exponent (an excess mass on unscaled columns can be 1e-15). A difference passes the
+    values it compares as `scale`: below 1e-12 of them it is the rounding of a sum of floats (identical results
+    differed by 7.4e-17 in the walkthrough) and shows as 0. None shows as "undefined"."""
+    from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
+
+    if value is None:
+        return "undefined"
+    value = float(value)
+    plus = "+" if sign else ""
+    if not math.isfinite(value):
+        return f"{value:{plus}.{digits}f}"
+    if scale is not None and abs(value) < 1e-12 * abs(float(scale)):
+        value = 0.0
+    places = digits
+    small = Decimal(1).scaleb(-(digits - 1))
+    with localcontext() as context:
+        context.prec = 60
+        exact = Decimal(repr(value))
+
+        def rounded(at):
+            return exact.quantize(Decimal(1).scaleb(-at), rounding=ROUND_HALF_UP)
+
+        try:
+            if value != 0 and abs(exact) < small:
+                exponent = math.floor(math.log10(abs(value)))
+                if exponent < -12:
+                    return f"{value:{plus}.{digits}g}"
+                places = digits - 1 - exponent
+                if abs(rounded(places)) >= Decimal(1).scaleb(exponent + 1):
+                    places -= 1           # it rounds up into the next decade: one decimal fewer keeps `digits`
+                if abs(rounded(places)) >= small:
+                    places = digits       # it rounds up to the smallest value shown with fixed decimals
+            text = f"{rounded(places):f}"
+        except InvalidOperation:
+            return f"{value:{plus}.{digits}f}"
+    return "+" + text if sign and not text.startswith("-") else text
 
 
 def round_half_up(value: float, digits: int) -> str:

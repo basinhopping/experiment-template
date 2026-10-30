@@ -384,9 +384,16 @@ def warnings_for(sweep: dict, summary: dict) -> list:
     every seed (compared over subsamples instead)."""
     out = []
     unsupervised = summary.get("family") in ("clusterer", "embedder", "detector")
+    # a sweep on one fold (split all: a final run on every row) has no subsamples to compare over (the dry run's
+    # final sweeps were told to compare over two or more, 2026-10-30)
+    one_fold = sweep.get("folds") is not None and len(sweep["folds"]) < 2
     if sweep["purpose"] not in ("learning", "smoke", "regression"):
         for stage in summary["stages"]:
-            if len(stage["seeds"]) == 1 and unsupervised:
+            if len(stage["seeds"]) == 1 and unsupervised and one_fold:
+                out.append(f"stage {stage['name']} runs one seed in a {sweep['purpose']} sweep on one fold: enough "
+                           "only for a method that gives the same result for every seed (HDBSCAN, DBSCAN, "
+                           "agglomerative); a method with randomness needs at least 3 seeds (5 to report)")
+            elif len(stage["seeds"]) == 1 and unsupervised:
                 out.append(f"stage {stage['name']} runs one seed in a {sweep['purpose']} sweep: enough only for a "
                            "method that gives the same result for every seed (HDBSCAN, DBSCAN, agglomerative), "
                            "compared over two or more subsamples; a method with randomness needs at least 3 seeds")

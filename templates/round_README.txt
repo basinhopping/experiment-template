@@ -6,8 +6,10 @@ Sweeps (each checked by expand; files under sweeps/, SHA-256 in sweep_files.sha2
 {{sweeps}}
 
 On the node: the environment {{environment}} (~/venvs/{{project}}-{{environment}}, profiles {{profiles}}); the schedule
-starts {{workers_per_gpu}} workers on each of GPUs {{gpus}} (only those no one else is using) and stops them at
-{{end_time}}, the node's local time, or earlier when less than {{min_free_gb}} GB is free in the home folder.
+starts {{workers_per_gpu}} workers on each of GPUs {{gpus}} (only those no one else is using) and stops them
+{{end_phrase}},
+or earlier when no job is left (the round's session then ends) or less than {{min_free_gb}} GB is free in the home
+folder.
 
 Plan: {{plan}}
   the steps node/chain.sh runs on the node in one tmux session that ends by itself. It lives under sweeps/ so that

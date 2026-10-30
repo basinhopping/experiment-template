@@ -28,24 +28,45 @@ were read (post hoc), exploratory, or descriptive. Only planned comparisons carr
 
 ## Documents
 
-| Document | When | Template | Where it lives |
+| Document | When | Template | Title, as a Claude Docs document |
 |---|---|---|---|
-| Results doc | after each round's reading | `templates/results_doc.md` | `reports/<round>_<date>.md`, and the Claude Project |
-| Meeting summary | before each meeting | `templates/meeting_summary.md` | `reports/meeting_<date>.md`, and the Claude Project |
-| How it works | once the first round has run, kept current | `templates/how_it_works.md` | `reports/how_it_works.md` |
-| Findings list | each finding, when it is made or changes | `templates/findings.csv` | `findings.csv` |
-| Round README | at the reading | `templates/round_README.txt` (the preparation half) | `artifacts/analyses/<round>_<date>/README.txt` |
+| Results doc | after each round's reading | `templates/results_doc.md` | "<Round> Results on <data>" |
+| Meeting summary | before each meeting | `templates/meeting_summary.md` | "Results for the Meeting of <date>" |
+| How it works | once the first round has run, kept current | `templates/how_it_works.md` | "How <project> works" |
+| Findings list | each finding, when it is made or changes | `templates/findings.csv` | none: `findings.csv` |
+| Round README | at the reading | `templates/round_README.txt` (the preparation half) | none: `artifacts/analyses/<round>_<date>/README.txt` |
 
 `reports/`, `findings.csv` and the rest stay out of git (`.gitignore`): results are not code.
 
-- **Results doc**: the findings first (each with its number, interval and finding ID), then what was done, "How I
-  found this" for each result (the steps and files, enough to repeat it), the detail, what it does not show, and the
-  files. The comparison with the previous best comes first among the findings.
-- **Meeting summary**: only what was asked, each item done fully under its own large header, with its tables and
-  figures kept beside the text that explains them, then the questions for the meeting.
+- **Results doc**: a short opening paragraph with the main result, then the early findings (each with its number,
+  interval and finding ID; the comparison with the previous best first), what I did, "How I found this" (the steps
+  and files, enough to repeat it), the results with their charts and tables, the comparison with the previous best,
+  what comes next, and the sources.
+- **Meeting summary**: only what was asked, each item done fully under its own heading: the answer first, then how,
+  with its tables and charts kept beside the text that explains them, and what it cannot show. It gathers the
+  rounds' results docs since the last meeting; it ends with the sources.
 - **Findings list**: one row per claim: an ID, the claim in one sentence, the runs and tables behind it, the test
   used, the result, a status (supported, not supported, pending), the round, and when it was last checked. A claim in
   a paper cites a finding ID.
+
+## Where the documents live
+
+When the session can make Claude artifacts (Cowork, or a Claude Project with artifacts), each results doc, meeting
+summary and the "how it works" page is a **Claude Docs document** (the Docs artifact type), titled as in the table:
+one per round, and one per meeting that gathers the rounds since the last. Its text, tables and charts stay editable,
+it takes comments, and it exports to Word or PDF. Not a dashboard and not a hand-built HTML page: a page made for one
+run cannot be edited or commented as a document can. The Dashboard type has one use here, once the project has many
+rounds: an atlas of every sweep, configuration and tested comparison in one place, linked from the meeting summary,
+rebuilt before each meeting, and adding no comparison of its own. Without artifacts, the documents are the Markdown
+files: `reports/<round>_<date>.md`, `reports/meeting_<date>.md` and `reports/how_it_works.md`.
+
+A document opens with its title, then the date and the author, then the main result in a short paragraph. Each
+chart is the document's own chart, made from the rows of the file it shows (not a picture of a chart), with a
+caption that names that file, the family and the seeds (`artifacts/analyses/<round>_<date>/report.json · family
+F1, seeds 1 to 5`) and a paragraph under it that says what it shows. Long detail that only some readers need (each
+architecture layer by layer, every configuration of a search) goes in a second tab. The last section is "Sources":
+"Every number comes from these files of the project folder (under artifacts/ unless named otherwise), rounded half
+up from the exact values", then the files, section by section.
 
 ## Figures
 

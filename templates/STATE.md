@@ -12,7 +12,7 @@ One paragraph: the project, its question, and where it stands.
 - Repository folder and branch; the code's tree digest at the last node install.
 - Data: files under `data/` (and on the node), with their manifests.
 - Results: sweeps run (IDs), analyses, selections, RULE folders, rounds (`artifacts/analyses/<round>_<date>/`),
-  reports (`reports/`), exports pulled home.
+  reports (each Claude Docs document by title and link, or `reports/`), exports pulled home.
 
 ## Done since the last state note
 

@@ -419,6 +419,35 @@ class TestStabilityChooses(Repo):
         self.assertEqual(k8["versus_baseline"]["bootstrap"]["n_folds"], 3)
 
 
+class TestPrintedStability(Repo):
+    """analyze's text names both parts of stability, across seeds and across folds (the dry run, 2026-10-30: t-SNE
+    was 1.000 across seeds and 0.114 across subsamples, and only report.json said so), and shows a value smaller than
+    its last decimal with significant digits (an excess-mass criterion of about 1e-4 printed as 0.0000)."""
+
+    @classmethod
+    def make(cls):
+        cls.sweep = sweep(cluster_base(), [
+            {"name": "base", "kind": "base", "priority": 5, "seeds": [1, 2]},
+            {"name": "k", "kind": "one_factor_at_a_time", "priority": 4, "seeds": [1, 2],
+             "factors": {"model.n_clusters": [4]}},
+        ], sweep_id="print1")
+        run_sweep(cls.root, cls.sweep)
+        cls.report = analyze_saved("print1")
+
+    def test_both_parts_of_stability_and_small_values(self):
+        from sweepkit.analysis.validation import render
+
+        text = render(self.report, 5)
+        lines = [line for line in text.splitlines() if "stability (adjusted Rand index)" in line]
+        self.assertEqual(len(lines), 2, text)
+        for line in lines:
+            self.assertIn("across seeds", line)
+            self.assertIn("across folds", line)
+        tiny = json.loads(json.dumps(self.report))
+        tiny["ranked"][0]["value"] = 0.000144
+        self.assertIn("  0.000144", render(tiny, 5))
+        self.assertNotIn("  0.0001 ", render(tiny, 5))
+
 class TestLateRule(Repo):
     """A RULE is fixed before the results it governs: rule-fix refuses one fixed after runs of its sweeps exist,
     unless a reason is given, which is recorded and printed by every report that uses the RULE."""

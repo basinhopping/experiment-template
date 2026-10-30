@@ -150,6 +150,12 @@ class TestLaptopStandin(unittest.TestCase):
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertIn("4 rows in both: adjusted Rand index 1.000000, identical labels False", done.stdout)
             self.assertIn("against the truth", done.stdout)
+            # a script's own column names, given after the file
+            (d / "mine.csv").write_text("sample_id,cluster\nr4,-1\nr3,2\nr2,1\nr1,1\n")
+            done = subprocess.run([sys.executable, str(STANDIN), "--compare", f"{d / 'mine.csv'}:sample_id:cluster",
+                                   str(d / "b.csv")], capture_output=True, text=True, timeout=120)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIn("4 rows in both: adjusted Rand index 1.000000, identical labels False", done.stdout)
 
     @needs_module("hdbscan")
     def test_the_script_clusters_a_small_table(self):

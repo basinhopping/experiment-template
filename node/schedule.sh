@@ -24,6 +24,12 @@
 # needs the end at least SCHEDULE_MIN_LEAD_MINUTES (default 30) ahead, for the work between the check and the start.
 # A round's plan checks its schedule that way before it enqueues anything (swap_and_restart.sh too), so a refusal
 # leaves no jobs waiting without workers.
+# With --end-when-empty (a round's plan uses it), the schedule ends early once workers have run and the queue has no
+# job waiting or running and no worker session of the project is left: it writes queue/STOP as an end does and
+# exits, so the round's session ends with its work instead of at the end time (a round whose 1,144 jobs took ten
+# minutes kept its session open for hours, and the next round's install refused to start, 2026-10-30). It looks every
+# SCHEDULE_POLL_SECONDS (default 60). Jobs left waiting (workers stopped by MAX_FAILS or the disk floor) keep it to
+# the end time, as before.
 # Nothing else is touched: no other tmux session, no queue file but these stop files. To stop the workers early:
 # touch ~/<project>/queue/STOP (each finishes its job, then exits). Ending this session (tmux kill-session) only
 # cancels its later steps, its end among them: the workers then run on until the queue is empty. Log:
@@ -34,9 +40,16 @@
 set -uo pipefail
 source "$(dirname "$0")/common.sh"
 TMUX_CMD="${TMUX_CMD:-tmux}"
-USAGE="usage: schedule.sh [--check] <workers per GPU> <time>:<gpus|none|end> ..."
+USAGE="usage: schedule.sh [--check] [--end-when-empty] <workers per GPU> <time>:<gpus|none|end> ..."
 CHECK=""
-if [ "${1:-}" = --check ]; then CHECK=yes; shift; fi
+WHEN_EMPTY=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --check) CHECK=yes; shift ;;
+        --end-when-empty) WHEN_EMPTY=yes; shift ;;
+        *) break ;;
+    esac
+done
 WORKERS="${1:?$USAGE}"
 shift
 [ "$#" -ge 1 ] || { echo "$USAGE"; exit 1; }
@@ -53,10 +66,33 @@ if slurm_active; then log "Slurm's slurmd is active, so Slurm may give these GPU
 if ! [[ "$WORKERS" =~ ^[1-9][0-9]*$ ]]; then log "REFUSING: '$WORKERS' workers per GPU: a whole number from 1; nothing started"; exit 1; fi
 if [ ! -x "$VENV/bin/python" ]; then log "REFUSING: no environment $VENV (ENVIRONMENT=$ENVIRONMENT; node/setup_env.sh builds it); nothing started"; exit 1; fi
 if ! [[ "${MIN_FREE_GB:-10}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then log "REFUSING: MIN_FREE_GB='$MIN_FREE_GB': a number of GB, such as 15; nothing started"; exit 1; fi
-for setting in "MAX_FAILS=${MAX_FAILS:-5}" "THREADS=$THREADS"; do
+POLL="${SCHEDULE_POLL_SECONDS:-60}"
+for setting in "MAX_FAILS=${MAX_FAILS:-5}" "THREADS=$THREADS" "SCHEDULE_POLL_SECONDS=$POLL"; do
     if ! [[ "${setting#*=}" =~ ^[1-9][0-9]*$ ]]; then log "REFUSING: $setting: a whole number from 1; nothing started"; exit 1; fi
 done
 ALL_GPUS=$("${NVIDIA_SMI_CMD:-nvidia-smi}" --query-gpu=index --format=csv,noheader 2>/dev/null | tr -d ' ')
+
+STARTED=""
+queue_finished() {   # no job waiting or running, and no worker session of the project left
+    local sessions
+    [ -z "$(ls -A "$Q/pending" 2>/dev/null)" ] && [ -z "$(ls -A "$Q/running" 2>/dev/null)" ] || return 1
+    # no pipe into grep -q: under pipefail, tmux cut off by grep's early exit would read as no session. Whole names
+    # only: a round's own session, <project>_<round>, may be named gpu_test or cpu2
+    sessions=$("$TMUX_CMD" ls -F '#{session_name}' 2>/dev/null || true)
+    ! grep -q -E "^${PROJECT}_(gpu[0-9]+|cpu)$" <<< "$sessions"
+}
+
+wait_for() {   # until the unix time $1; with --end-when-empty, returns 1 at once when the work is done
+    local until="$1" now left
+    while :; do
+        now=$(date +%s)
+        [ "$now" -ge "$until" ] && return 0
+        if [ -n "$WHEN_EMPTY" ] && [ -n "$STARTED" ] && queue_finished; then return 1; fi
+        left=$((until - now))
+        if [ -n "$WHEN_EMPTY" ] && [ "$left" -gt "$POLL" ]; then left="$POLL"; fi
+        sleep "$left"
+    done
+}
 
 run_on() {   # $1: comma-separated GPUs that should have workers from now
     local wanted=",$1," g busy
@@ -64,7 +100,8 @@ run_on() {   # $1: comma-separated GPUs that should have workers from now
         case "$wanted" in
             *",$g,"*)
                 if [ -e "$Q/STOP" ]; then log "GPU $g: queue/STOP exists, so nothing starts"; continue; fi
-                if "$TMUX_CMD" has-session -t "${PROJECT}_gpu$g" 2>/dev/null; then log "GPU $g: workers running already"; continue; fi
+                # = asks tmux for this exact name: without it, a session named <project>_gpu0_screen counts as GPU 0's
+                if "$TMUX_CMD" has-session -t "=${PROJECT}_gpu$g" 2>/dev/null; then log "GPU $g: workers running already"; STARTED=yes; continue; fi
                 busy=$(gpu_busy_reason "$g")
                 if [ -n "$busy" ]; then log "GPU $g NOT started: $busy"; continue; fi
                 rm -f "${Q:?}/STOP_gpu$g"
@@ -72,9 +109,10 @@ run_on() {   # $1: comma-separated GPUs that should have workers from now
                 # workers read goes into the command itself (without it they would run in the main environment)
                 "$TMUX_CMD" new -d -s "${PROJECT}_gpu$g" "ENVIRONMENT=$ENVIRONMENT MIN_FREE_GB=${MIN_FREE_GB:-10} \
 MAX_FAILS=${MAX_FAILS:-5} THREADS=$THREADS bash $ROOT/node/worker.sh gpu $g $WORKERS"
+                STARTED=yes
                 log "GPU $g started: $WORKERS workers in tmux session ${PROJECT}_gpu$g" ;;
             *)
-                if "$TMUX_CMD" has-session -t "${PROJECT}_gpu$g" 2>/dev/null; then
+                if "$TMUX_CMD" has-session -t "=${PROJECT}_gpu$g" 2>/dev/null; then
                     touch "$Q/STOP_gpu$g"; log "GPU $g: STOP_gpu$g written, its workers stop after their current jobs"
                 fi ;;
         esac
@@ -127,7 +165,11 @@ for i in "${!STEPS[@]}"; do
     if [ $((i + 1)) -lt ${#STEPS[@]} ]; then next="${STEPS[$((i + 1))]%%:*}"; fi
     now=$(date +%s)
     if [ -n "$next" ] && [ "$now" -ge "$next" ]; then log "skipped $what of $(date -u -d "@$when" +%FT%TZ): its time and the next step's have passed"; continue; fi
-    if [ "$now" -lt "$when" ]; then sleep $((when - now)); fi
+    if ! wait_for "$when"; then
+        touch "$Q/STOP"; rm -f "${Q:?}"/STOP_gpu*
+        log "end: no job is waiting or running and every worker of $PROJECT has finished, so the schedule ends before its end, $(date -d "@$END" '+%F %H:%M %Z'); queue/STOP written"
+        break
+    fi
     if slurm_active; then log "Slurm's slurmd became active: writing queue/STOP and ending"; touch "$Q/STOP"; exit 1; fi
     case "$what" in
         end) touch "$Q/STOP"; rm -f "${Q:?}"/STOP_gpu*; log "end: queue/STOP written; every worker stops after its current job"; break ;;

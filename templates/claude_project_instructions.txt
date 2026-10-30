@@ -19,6 +19,8 @@ Follow docs/HOW_WE_WORK.md without being asked. In short:
 - On a shared node: only free GPUs, a stop time on every night's workers, sessions that end by themselves, never
   another user's session, the free disk checked before data is copied, never a code update while workers run.
 - No logins, host names, passwords, personal details or data go into git.
+- After each round's reading, a results doc; before each meeting, a summary of the rounds since the last (Claude
+  Docs documents when this chat can make artifacts; docs/REPORTING.md).
 
 How to answer:
 - Open the file before saying what is in it, and name the file. Keep three states apart: verified against a named

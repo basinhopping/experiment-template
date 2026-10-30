@@ -16,7 +16,7 @@ A profile is a set of pinned packages (`env/requirements-<profile>.txt`). An env
 | Gradient boosting | core, boosting |
 | Pretrained Hugging Face models | core, torch, pretrained |
 | Bayesian search (propose) | core, search |
-| Genie, Lumbermark, leidenalg, FasterPAM, FlowSOM, Harmony, ComBat, PHATE, TriMap | core, extras (read the licences first) |
+| Genie, Lumbermark, leidenalg, FasterPAM, Harmony, PHATE, TriMap; igraph for scanpy_leiden on the CPU; the FlowSOM and ComBat packages (the template's own FlowSOM and ComBat need only core) | core, extras (read the licences first) |
 
 ## The profiles
 
@@ -48,7 +48,7 @@ Components that need it: graph (dataset), items (dataset), store (dataset), synt
 
 For: neural networks (the torch family): MLPs, CNNs, RNNs, Transformers, spiking models, autoencoders.
 
-Environment: main. Installed: everywhere. Licences: BSD-3-Clause. Platforms: Linux (CUDA 13 from PyPI; cu126 index for GPUs older than Turing), Windows (cu130 index for an NVIDIA GPU, else CPU), Mac (CPU and MPS).
+Environment: main. Installed: everywhere but an Intel Mac. Licences: BSD-3-Clause. Platforms: Linux (CUDA 13 from PyPI; cu126 index for GPUs older than Turing), Windows (cu130 index for an NVIDIA GPU, else CPU), a Mac with Apple silicon (CPU and MPS; PyTorch has published no build for an Intel Mac since 2.2).
 
 | Package | Pin |
 |---|---|
@@ -60,7 +60,7 @@ Components that need it: mask (augmentation), mixup (augmentation), noise (augme
 
 For: HDBSCAN (hdbscan, fast_hdbscan), UMAP, openTSNE, PaCMAP, FAISS and pynndescent neighbours, tslearn.
 
-Environment: main. Installed: everywhere. Licences: BSD, MIT, Apache-2.0 (permissive). Platforms: Windows, Mac (FAISS needs macOS 14), Linux.
+Environment: main. Installed: everywhere but an Intel Mac. Licences: BSD, MIT, Apache-2.0 (permissive). Platforms: Windows, Linux, and a Mac with Apple silicon (numba and llvmlite publish no build of these versions for an Intel Mac; FAISS needs macOS 14).
 
 | Package | Pin |
 |---|---|
@@ -162,7 +162,7 @@ Environment: main. Installed: on request. Licences: MIT. Platforms: all.
 
 ### singlecell
 
-For: scanpy, anndata and scvi-tools on the CPU.
+For: scanpy, anndata and scvi-tools on the CPU (scanpy_leiden also needs igraph, in extras: GPL).
 
 Environment: main. Installed: on request. Licences: BSD-3-Clause. Platforms: all; Python 3.12 or 3.13.
 
@@ -225,6 +225,6 @@ Components that need it: genie (model), lumbermark (model), phate (model), trima
 
 Home, Linux or Mac: `bash env/setup.sh main core torch unsupervised`.
 
-Home, Windows: `powershell -ExecutionPolicy Bypass -File env\setup.ps1 -Environment main -Profiles "core,torch,unsupervised" -TorchIndex cpu` (or `-TorchIndex cu130` with an NVIDIA GPU).
+Home, Windows: `powershell -ExecutionPolicy Bypass -File env\setup.ps1 -Environment main -Profiles "core,torch,unsupervised" -TorchIndex cpu` (or `-TorchIndex cu130` with an NVIDIA GPU; add `-Python 3.13` when the py launcher lists 3.13 and not 3.12: `py -0`).
 
 Node: `bash node/setup_env.sh main core torch unsupervised`, then `bash node/setup_env.sh rapids rapids`.

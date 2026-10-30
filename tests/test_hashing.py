@@ -1,5 +1,6 @@
 """Hashes: canonical JSON, file hashes, and the code-tree digest computed the same way in Python (any machine) and
 in the shell (node/tree_digest.sh), so a person can check that a copy arrived complete."""
+import os
 import shutil
 import subprocess
 import tempfile
@@ -69,7 +70,7 @@ class TestHashing(unittest.TestCase):
             root.mkdir()
             tools.mkdir()
             self._tree(root)
-            for name in ("find", "sort", "cut", "shasum", "perl", "cat"):
+            for name in ("find", "sort", "cut", "sed", "shasum", "perl", "cat"):
                 if shutil.which(name):
                     (tools / name).symlink_to(shutil.which(name))
             xargs = tools / "xargs"
@@ -78,6 +79,27 @@ class TestHashing(unittest.TestCase):
             xargs.chmod(0o755)
             run = subprocess.run([shutil.which("bash"), str(REPO / "node" / "tree_digest.sh"), str(root)],
                                  capture_output=True, text=True, env={"PATH": str(tools)})
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(run.stdout.strip(), tree_digest(root))
+
+    @unittest.skipIf(shutil.which("bash") is None or shutil.which("sha256sum") is None, "no bash or sha256sum here")
+    @unittest.skipIf(not (REPO / "node" / "tree_digest.sh").is_file(), "node/ was removed from this copy")
+    def test_shell_digest_with_binary_mode_marks_as_in_git_bash(self):
+        # Git Bash's sha256sum prints "<hash> *<path>" (binary mode); the PC's digest of the tree pushed on 2026-10-29
+        # differed from the node's until the mark was taken out. Stand-in: a sha256sum that always reads in binary mode.
+        with tempfile.TemporaryDirectory() as d:
+            root, tools = Path(d) / "repo", Path(d) / "bin"
+            root.mkdir()
+            tools.mkdir()
+            self._tree(root)
+            (tools / "sha256sum").write_text(f'#!/bin/sh\nexec {shutil.which("sha256sum")} -b "$@"\n')
+            (tools / "sha256sum").chmod(0o755)
+            marked = subprocess.run([shutil.which("sha256sum"), "-b", str(root / "README.md")], capture_output=True,
+                                    text=True).stdout
+            self.assertIn(" *", marked, "the stand-in must print the binary-mode mark")
+            run = subprocess.run([shutil.which("bash"), str(REPO / "node" / "tree_digest.sh"), str(root)],
+                                 capture_output=True, text=True,
+                                 env={"PATH": f"{tools}:{os.environ['PATH']}"})
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertEqual(run.stdout.strip(), tree_digest(root))
 

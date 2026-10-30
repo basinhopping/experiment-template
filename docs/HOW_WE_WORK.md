@@ -86,8 +86,9 @@ shared GPU node, more than 37,000 runs, with results read by an advisor. Claude 
 ## Writing results
 
 - A results doc per round, a meeting summary before each meeting, and a standing "how it works" page
-  (`templates/`, docs/REPORTING.md). Each is checked before anyone else reads it: nothing in it the readers should not
-  see, and every number checked against its file by a separate read.
+  (`templates/`, docs/REPORTING.md): Claude Docs documents when the session can make Claude artifacts, Markdown files
+  in `reports/` otherwise. Each is checked before anyone else reads it: nothing in it the readers should not see, and
+  every number checked against its file by a separate read.
 - Plain prose in the first person, short sentences, a number with its source rather than a characterisation, tables
   for more than three comparable values. Say what a result shows and what it does not; if something was not tested,
   say so.

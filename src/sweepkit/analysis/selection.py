@@ -23,7 +23,7 @@ from sweepkit.analysis.rules import covering_rule, enforce, late_note, now_utc
 from sweepkit.analysis.transductive import note as transductive_note
 from sweepkit.analysis.transductive import parts as transductive_parts
 from sweepkit.splits.base import CHECK_FOLD
-from sweepkit.eval.stats import t_interval
+from sweepkit.eval.stats import shown, t_interval
 from sweepkit.hashing import sha256_file
 from sweepkit import paths
 
@@ -194,8 +194,10 @@ def _line(name: str, m: dict, confidence: float) -> str:
     if m["mean"] is None:
         return f"  {name} undefined (seeds {m['undefined_in_seeds']})"
     ci = m["interval"]
-    return f"  {name} {m['mean']:.4f}" + (f" [{ci['low']:.4f}, {ci['high']:.4f}] ({round(confidence * 100)}% t "
-                                         f"interval over seeds), SD {ci['sd']:.4f}" if ci else " (one seed)")
+    # an SD of identical values comes out of the floating sums as about 1e-17: shown against the mean, it is 0
+    return f"  {name} {shown(m['mean'])}" + (f" [{shown(ci['low'])}, {shown(ci['high'])}] ({round(confidence * 100)}% "
+                                            f"t interval over seeds), SD {shown(ci['sd'], scale=m['mean'])}"
+                                            if ci else " (one seed)")
 
 
 def render(report: dict, kind: str) -> str:
@@ -211,14 +213,15 @@ def render(report: dict, kind: str) -> str:
     for name, m in report["metrics"].items():
         lines.append(_line(name, m, report["confidence"]))
     if report.get("recall"):
-        lines.append("  recall " + "  ".join(f"{c} {'undefined' if v is None else f'{v:.3f}'}"
+        lines.append("  recall " + "  ".join(f"{c} {shown(v, 3)}"
                                             for c, v in report["recall"].items()))
     for column, groups in (report.get("by_group") or {}).items():
         lines.append(f"  {report['select']['metric']} by {column}: "
-                     + "  ".join(f"{g} {'undefined' if v is None else f'{v:.4f}'}" for g, v in groups.items()))
+                     + "  ".join(f"{g} {shown(v)}" for g, v in groups.items()))
     if "select_by_fold" in report:
         for seed in report["seeds"]:
-            lines.append(f"  seed {seed}: " + "  ".join(f"{f} {v:.4f}" for f, v in report["select_by_fold"][seed].items()))
+            lines.append(f"  seed {seed}: " + "  ".join(f"{f} {shown(v)}"
+                                                        for f, v in report["select_by_fold"][seed].items()))
     check = report.get("identity_check")
     if check is not None:
         if not check["compared"]:

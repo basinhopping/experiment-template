@@ -76,6 +76,43 @@ class TestHolmPooAndRounding(unittest.TestCase):
         self.assertEqual(round_half_up(0.12345, 4), "0.1235")
         self.assertEqual(round_half_up(2.5, 0), "3")
 
+    def test_a_small_value_keeps_its_significant_digits_in_plain_decimals(self):
+        """Four decimals printed 0.0000 for a criterion of about 1e-4 (the dry run, 2026-10-30); a small value now
+        keeps four significant digits, without an exponent above 1e-12."""
+        from sweepkit.eval.stats import shown
+
+        self.assertEqual(shown(0.5158), "0.5158")
+        self.assertEqual(shown(0.0), "0.0000")
+        self.assertEqual(shown(0.0, sign=True), "+0.0000")
+        self.assertEqual(shown(0.0001234), "0.0001234")
+        self.assertEqual(shown(-4.24e-05, sign=True), "-0.00004240")
+        self.assertEqual(shown(4.24e-05, sign=True), "+0.00004240")
+        self.assertEqual(shown(0.0123), "0.0123")
+        # a value below 1e-12 keeps its digits, with an exponent (an excess mass on unscaled columns)
+        self.assertEqual(shown(2.5e-15), "2.5e-15")
+        # a difference below 1e-12 of the values it compares is the rounding of a sum of floats, shown as 0 (the
+        # walkthrough's identical clusterings differed by 7.4e-17); of values that small, it is a difference
+        self.assertEqual(shown(-7.401e-17, sign=True, scale=0.7597), "+0.0000")
+        self.assertEqual(shown(7.401e-17, sign=True, scale=0.7597), "+0.0000")
+        self.assertEqual(shown(-1e-16, sign=True, scale=2.3e-15), "-1e-16")
+        # an SD of five identical values, as numpy computes it, against their mean
+        import numpy as np
+        sd = float(np.std([0.4506902752441857] * 5, ddof=1))
+        self.assertEqual(shown(sd, scale=0.4506902752441857), "0.0000")
+        # a value that rounds up into the next decade keeps its number of significant digits
+        self.assertEqual(shown(9.9999995e-05), "0.0001000")
+        self.assertEqual(shown(0.00099996, 3), "0.00100")
+        self.assertEqual(shown(None), "undefined")
+        self.assertEqual(shown(float("nan")), "nan")
+        # half up from the exact value, as round_half_up and the documents (Python's format rounds 0.00012345 down)
+        self.assertEqual(shown(0.00012345), "0.0001235")
+        self.assertEqual(shown(0.60005), "0.6001")
+        # a value that rounds up to 0.001 shows as 0.001 does, not with a fifth digit
+        self.assertEqual(shown(0.00099996), "0.0010")
+        self.assertEqual(shown(0.001), "0.0010")
+        self.assertEqual(shown(-0.0), "-0.0000")
+        self.assertEqual(shown(1e30), "1" + "0" * 30 + ".0000")      # the stored value, not its binary expansion
+
 
 class TestSeedAndUnitBootstraps(unittest.TestCase):
     def test_a_bootstrap_p_is_never_zero(self):

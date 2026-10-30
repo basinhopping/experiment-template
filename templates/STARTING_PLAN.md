@@ -19,8 +19,9 @@ is checked, and says who does it. The plan changes when a result changes it; eac
 ## Step 3: existing code reproduced
 
 - The person's script, unchanged, on a sample; the template's version of the same method on the same sample.
-- Done when: the two outputs agree (for a deterministic clustering, adjusted Rand index 1.0; for a model, the same
-  predictions or metrics within the stated tolerance), recorded in VERIFICATION_LOG.md. Skip when there is no code.
+- Done when: the two outputs agree (for a deterministic clustering, adjusted Rand index 1.0, or the difference shown to
+  be float32 against float64 as CLAUDE.md says; for a model, the same predictions or metrics within the stated
+  tolerance), recorded in VERIFICATION_LOG.md. Skip when there is no code.
 
 ## Step 4: the first sweep
 

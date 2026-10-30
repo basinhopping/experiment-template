@@ -61,10 +61,11 @@ The exact lines, with what each should print, are in TESTING.md ("On a shared GP
 1. Look before touching anything, with this line, which only reads (the person logs in and pastes it):
 
    ```
-   echo "--- $(date -u +%FT%TZ)"; df -h ~; (timeout 20 quota -s 2>/dev/null || true); echo "--- the largest items in the home folder"; (timeout 300 du -xh --max-depth=1 ~ 2>/dev/null | sort -h | tail -12); echo "--- CPUs: $(nproc); memory: $(free -g | awk '/^Mem:/ {print $2 " GB, " $7 " GB available"}')"; echo "--- GPUs: index, ID, name, driver, memory used, memory total, use"; nvidia-smi --query-gpu=index,uuid,name,driver_version,memory.used,memory.total,utilization.gpu --format=csv,noheader; echo "--- GPU processes: GPU ID, pid, memory, then user, running for, command"; nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader | while IFS=', ' read -r u p m x; do echo "$u, $p, $m $x: $(ps -o user:32=,etime=,comm= -p "$p" 2>/dev/null)"; done; echo "--- your tmux sessions"; (tmux ls 2>/dev/null || echo "none"); echo "--- your crontab"; (crontab -l 2>/dev/null | grep -v '^#' || echo "none"); echo "--- slurmd: $(systemctl is-active slurmd 2>/dev/null)"; for v in 3.12 3.13; do echo "python$v: $(python$v --version 2>&1)"; done; for h in pypi.org files.pythonhosted.org pypi.nvidia.com github.com huggingface.co; do echo "$h: $(curl -sI -o /dev/null -w '%{http_code}' --max-time 10 https://$h)"; done
+   echo "--- $(date -u +%FT%TZ); the node's local time: $(date '+%F %T %Z, UTC%z')"; df -h ~; (timeout 20 quota -s 2>/dev/null || true); echo "--- the largest items in the home folder"; (timeout 300 du -xh --max-depth=1 ~ 2>/dev/null | sort -h | tail -12); echo "--- CPUs: $(nproc); memory: $(free -g | awk '/^Mem:/ {print $2 " GB, " $7 " GB available"}')"; echo "--- GPUs: index, ID, name, driver, memory used, memory total, use"; nvidia-smi --query-gpu=index,uuid,name,driver_version,memory.used,memory.total,utilization.gpu --format=csv,noheader; echo "--- GPU processes: GPU ID, pid, memory, then user, running for, command"; nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader | while IFS=', ' read -r u p m x; do echo "$u, $p, $m $x: $(ps -o user:32=,etime=,comm= -p "$p" 2>/dev/null)"; done; echo "--- your tmux sessions"; (tmux ls 2>/dev/null || echo "none"); echo "--- your crontab"; (crontab -l 2>/dev/null | grep -v '^#' || echo "none"); echo "--- slurmd: $(systemctl is-active slurmd 2>/dev/null)"; for v in 3.12 3.13; do echo "python$v: $(python$v --version 2>&1)"; done; for h in pypi.org files.pythonhosted.org pypi.nvidia.com github.com huggingface.co; do echo "$h: $(curl -sI -o /dev/null -w '%{http_code}' --max-time 10 https://$h)"; done
    ```
 
    It takes up to a few minutes (`du` walks the home folder) and prints:
+   - the time in UTC and on the node's clock, with its zone: a round's `--end-time` is in the node's local time;
    - the home folder's file system, its size and free space (`df`; on a shared node a home folder often has its own
      limit, far smaller than the drive it sits on), any quota, and the largest items in the home folder;
    - the CPUs, and the memory with how much is available;
@@ -105,15 +106,30 @@ check covers it.
 2. install and test: unpack, the tree digest, `check.sh` in the round's environment with its profiles (on the node),
    refused while the project's sessions run
 3. start: check the schedule (its GPUs and its end) without starting anything, smoke-test the round's sweeps on one
-   of its GPUs and enqueue them, then workers on the round's GPUs that no one else is using, until the stop time, all
-   inside one session running `node/chain.sh` on the round's plan, in the round's environment. It does not start
-   when none of the round's GPUs is free or less than the round's floor of free disk (`round-new --min-free-gb`) is
-   left; a schedule that would be refused, or a sweep that fails its smoke test, stops the chain before any worker
-   starts, with none of the round's sweeps enqueued; the workers stop at the end time or at the floor
+   of its GPUs and enqueue them, then workers on the round's GPUs that no one else is using, until the queue is
+   empty (at the latest the stop time), all inside one session running `node/chain.sh` on the round's plan, in the
+   round's environment. It does not start when none of the round's GPUs is free or less than the round's floor of
+   free disk (`round-new --min-free-gb`) is left; a schedule that would be refused, or a sweep that fails its smoke
+   test, stops the chain before any worker starts, with none of the round's sweeps enqueued; the workers stop when no
+   job is left for them, at the end time or at the floor. Once no job waits or runs and the workers have finished,
+   the schedule ends (`schedule.sh --end-when-empty`) and the session with it: `chain.txt` ends with `CHAIN DONE`,
+   and the next round's line 2 is not refused for a session that only waits
 4. status, as often as wanted: `bash node/run.sh status --sweep <id> --top 10 --since <utc>`
 5. pack, once the sweeps are finished: `status` first, because pack refuses only while a folder under the paths it
    is given is unfinished (`*.tmp`, a run being written) and knows nothing of jobs still in the queue
 6. pull (on the computer), which checks every file
+
+Smoke-testing before a round: a sweep that fails its smoke test in line 3 stops the whole round with nothing
+enqueued. When a round is to show which methods run at all (one sweep per method, a failure being a finding), test
+each sweep first, on one of the round's GPUs, in a session that ends by itself, and leave a failing one out of the
+round (its error stays in `artifacts/smoke/`):
+
+```
+cd ~/<project> && tmux new -d -s <project>_smoke "for f in sweeps/project/<prefix>*.json; do echo \"=== \$f\"; ENVIRONMENT=<environment> CUDA_VISIBLE_DEVICES=<g> bash node/run.sh smoke --sweep-file \$f --device cuda --rows 200; done > logs/presmoke_$(date -u +%Y%m%dT%H%M%SZ).log 2>&1"
+```
+
+`<environment>` is the round's (main, or rapids for cuML's GPU paths): the session takes tmux's environment, not
+the shell's. When the session is gone: `grep -h -E '^=== |FAILED|SMOKE ' $(ls -t logs/presmoke_*.log | head -1)`.
 
 Stopping early: `touch ~/<project>/queue/STOP`; each worker finishes its current job and exits. Remove it on purpose
 before starting again: a worker exits at once while it exists.

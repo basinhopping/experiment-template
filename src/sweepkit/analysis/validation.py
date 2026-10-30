@@ -37,7 +37,7 @@ from sweepkit.analysis.transductive import note as transductive_note
 from sweepkit.analysis.transductive import parts as transductive_parts
 from sweepkit.eval.stats import (NoVariation, UndefinedInDraw, folds_and_seeds_bootstrap, holm, paired_bootstrap,
                                  paired_units_bootstrap, probability_of_outperforming_by_fold,
-                                 probability_of_outperforming_interval, seed_bootstrap, t_interval, verdict)
+                                 probability_of_outperforming_interval, seed_bootstrap, shown, t_interval, verdict)
 from sweepkit.hashing import canonical_json, sha256_file
 from sweepkit.registry import METRICS
 from sweepkit.splits.base import CHECK_FOLD
@@ -300,8 +300,8 @@ def analyze(sweep_id: str, confidence: float, n_boot: int, seed: int, meaningful
             "identical_outputs": identical_outputs(configs, folds)}
 
 
-def _value(v, digits: int) -> str:
-    return "undefined" if v is None else f"{v:.{digits}f}"
+def _value(v, digits: int = 4, sign: bool = False, scale=None) -> str:
+    return shown(v, digits, sign, scale)
 
 
 def render(report: dict, top: int) -> str:
@@ -331,25 +331,31 @@ def render(report: dict, top: int) -> str:
     else:
         bi = base["interval"]
         lines.append(f"baseline {base['config_hash'][:12]}: seeds {base['seeds']}, {sel['metric']} "
-                     f"{_value(base['value'], 4)}" + (f" [{bi['low']:.4f}, {bi['high']:.4f}], SD {bi['sd']:.4f}"
-                                                      if bi else ""))
+                     f"{_value(base['value'], 4)}" + (f" [{_value(bi['low'])}, {_value(bi['high'])}], SD "
+                                                      f"{_value(bi['sd'], scale=base['value'])}" if bi else ""))
     for s in report["controls"]:
         lines.append(f"control {s['label']}: {sel['metric']} {_value(s['value'], 4)} over seeds {s['seeds']}")
     lines.append(f"top {min(top, len(ranked))} of {len(ranked)} by {sel['metric']}; difference = configuration minus "
                  "baseline:")
     for s in ranked[:top]:
         v = s.get("versus_baseline")
-        head = f"  {s['value']:.4f}"
+        head = f"  {_value(s['value'])}"
         if s["interval"]:
-            head += f" [{s['interval']['low']:.4f}, {s['interval']['high']:.4f}]"
+            head += f" [{_value(s['interval']['low'])}, {_value(s['interval']['high'])}]"
         if v:
             b, pb = v["bootstrap"], v["p_better"]
-            head += f"  diff {b['difference']:+.4f} bootstrap [{b['low']:+.4f}, {b['high']:+.4f}]"
+            # a difference is shown against the two values it compares, so that float rounding shows as 0
+            size = max(abs(s["value"] or 0.0), abs(base.get("value") or 0.0) if base else 0.0)
+
+            def diff(x):
+                return shown(x, 4, True, size)
+
+            head += f"  diff {diff(b['difference'])} bootstrap [{diff(b['low'])}, {diff(b['high'])}]"
             if "seed_interval" in v:
-                head += f" seeds [{v['seed_interval']['low']:+.4f}, {v['seed_interval']['high']:+.4f}]"
+                head += f" seeds [{diff(v['seed_interval']['low'])}, {diff(v['seed_interval']['high'])}]"
             if "difference_by_fold" in v:
                 by_fold = list(v["difference_by_fold"].values())
-                head += f" fold range [{min(by_fold):+.4f}, {max(by_fold):+.4f}]"
+                head += f" fold range [{diff(min(by_fold))}, {diff(max(by_fold))}]"
             head += f"  P(better) {pb['p_a_beats_b']:.2f}  Holm p {v['holm_p']:.3f}  {v['verdict']}"
         elif s["config_hash"] == report["baseline"]:
             head += "  (baseline)"
@@ -363,8 +369,13 @@ def render(report: dict, top: int) -> str:
             lines.append("      " + "  ".join(f"{m} {_value(x, 4)}" for m, x in others.items()))
         if s.get("stability") and sel["metric"] != STABILITY:
             st = s["stability"]
+            # the two parts can differ widely (t-SNE in the dry run: 1.000 across seeds, 0.114 across subsamples),
+            # and only report.json held them
+            seeds_part, folds_part = st["across_seeds"], st["across_folds"]
             lines.append(f"      stability ({st['measure']}) {_value(st['value'], 3)} over "
-                         f"{st['across_seeds']['n_pairs'] + st['across_folds']['n_pairs']} pairs")
+                         f"{seeds_part['n_pairs'] + folds_part['n_pairs']} pairs: across seeds "
+                         f"{_value(seeds_part['mean'], 3)} ({seeds_part['n_pairs']} pairs), across folds "
+                         f"{_value(folds_part['mean'], 3)} ({folds_part['n_pairs']} pairs)")
         for column, groups in (s.get("by_group") or {}).items():
             lines.append(f"      by {column}: " + "  ".join(f"{g} {_value(x, 4)}" for g, x in groups.items()))
     if report["undefined"]:
@@ -373,7 +384,9 @@ def render(report: dict, top: int) -> str:
     if report["factors"]:
         lines.append(f"factor levels in random stages (mean {sel['metric']} of the configurations drawn with each):")
         for f in report["factors"]:
-            levels = "  ".join(f"{r['level']}: {r['mean']:.4f} (n={r['n_configs']})" for r in f["levels"]
+            levels = "  ".join(f"{r['level']}: {_value(r['mean'])} (n={r['n_configs']})" for r in f["levels"]
                                if r["mean"] is not None)
-            lines.append(f"  {f['factor']} (spread {f['spread']:.4f}): {levels}")
+            # a spread is a difference of the level means: shown against them, so that float rounding shows as 0
+            size = max((abs(r["mean"]) for r in f["levels"] if r["mean"] is not None), default=0.0)
+            lines.append(f"  {f['factor']} (spread {_value(f['spread'], scale=size)}): {levels}")
     return "\n".join(lines)

@@ -1,8 +1,9 @@
-# {{project}}: how it works
+# How {{project}} works
 
 A standing page for the people who read the results: what the system does to the data and how a number becomes a
 result. Written by Claude once the first round has run, and kept current (each change dated). Plain language first,
-the exact settings after.
+the exact settings after. A Claude Docs document when the session can make Claude artifacts (docs/REPORTING.md),
+otherwise reports/how_it_works.md.
 
 ## The question and the data
 

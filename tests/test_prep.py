@@ -46,7 +46,8 @@ class Prepared:
     records: list
 
 
-def run(steps, x, roles: dict, rows=None, names=None, categorical=None, fit_role: str = "train", seed: int = 1):
+def run(steps, x, roles: dict, rows=None, names=None, categorical=None, fit_role: str = "train", seed: int = 1,
+        device: str = "cpu"):
     """run_prep on (name, fields) steps: every role's rows of x, the step fitted on fit_role."""
     from sweepkit.prep.base import PrepContext, run_prep
 
@@ -54,7 +55,7 @@ def run(steps, x, roles: dict, rows=None, names=None, categorical=None, fit_role
     rows = rows if rows is not None else table(x.shape[0])
     names = tuple(names) if names is not None else tuple(f"f{j}" for j in range(x.shape[1]))
     context = PrepContext(table=rows, feature_names=names, categorical=dict(categorical or {}), seed=seed,
-                          device="cpu")
+                          device=device)
     steps = tuple((name, settings(name, **fields)) for name, fields in steps)
     x_by_role = {role: x[np.asarray(p, dtype=np.int64)] for role, p in roles.items()}
     positions = {role: np.asarray(p, dtype=np.int64) for role, p in roles.items()}
@@ -557,6 +558,26 @@ class TestReduce(PrepTest):
         self.assertEqual((record["method"], record["components"], record["columns_out"]), ("pca", 2, 2))
         self.assertGreater(record["explained_variance"], 0.99)
         self.assert_fit_rows_only([("reduce", {"method": PCA_SETTINGS})], self.x, self.roles, lambda v: v * 5)
+
+    def test_reduce_runs_its_embedder_on_its_own_gpu_path_or_the_cpu(self):
+        """A job on the GPU offers its device to the reduce step; PCA's GPU path is cuML's, so without cuML (or a GPU
+        it can see) PCA runs on the CPU, gives the CPU's result, and its record says so (the node, 2026-10-30: TriMap
+        on torch after a PCA reduce step stopped with "No module named 'cuml'")."""
+        from sweepkit import devices
+
+        on_cpu = run([("reduce", {"method": PCA_SETTINGS})], self.x, self.roles)
+        offered = run([("reduce", {"method": PCA_SETTINGS})], self.x, self.roles, device="cuda")
+        # the record names a device only when the step ran elsewhere than the job: compare-runs compares records
+        self.assertNotIn("device", on_cpu.records[0])
+        if devices.gpu_path_ready("cuml"):
+            self.assertNotIn("device", offered.records[0])
+        else:
+            self.assertEqual(offered.records[0]["device"], "cpu")
+            np.testing.assert_array_equal(offered.x["val"], on_cpu.x["val"])
+        isomap = {"name": "isomap", "n_components": 2, "n_neighbors": 8, "metric": "euclidean", "eigen_solver": "auto",
+                  "path_method": "auto", "extra": {}}
+        self.assertEqual(run([("reduce", {"method": isomap})], self.x, self.roles, device="cuda").records[0]["device"],
+                         "cpu", "an embedder without a GPU path runs on the CPU whatever the job's device")
 
     def test_reduce_without_a_transform_needs_the_evaluated_rows_to_be_the_fit_rows(self):
         mds = {"name": "mds", "n_components": 2, "metric_mds": True, "metric": "euclidean", "init": "random",

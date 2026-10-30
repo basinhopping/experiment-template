@@ -132,7 +132,7 @@ baseline ea732305b146: seeds [1, 2, 3], silhouette 0.7597 [0.7597, 0.7597], SD 0
 top 7 of 7 by silhouette; difference = configuration minus baseline:
   0.7597 [0.7597, 0.7597]  (baseline)  | ea732305b146 base: base
       dbcv 0.7036  calinski_harabasz 2968.9631  davies_bouldin 0.3477  n_clusters 3.0000
-      stability (adjusted Rand index) 1.000 over 18 pairs
+      stability (adjusted Rand index) 1.000 over 18 pairs: across seeds 1.000 (9 pairs), across folds 1.000 (9 pairs)
   0.7597 [0.7597, 0.7597]  diff +0.0000 ... no detectable difference  | eb7375211756 methods: minibatch_kmeans
   ...
   0.5862 [0.5862, 0.5862]  diff -0.1735 bootstrap [-0.1751, -0.1726] ... Holm p 1.000  no detectable difference  | 7086f817534b k: model.n_clusters=2

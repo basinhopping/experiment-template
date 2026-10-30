@@ -42,7 +42,9 @@ cleanup() { rm -rf "${STAGE:?}"; }
 trap cleanup EXIT
 case "$NAME" in
 *_code_*.tar.gz)
-    tar -xzf "$NAME" -C "$STAGE"
+    # an archive made by a Mac's tar can hold its extended attributes and file flags as keywords GNU tar does not
+    # know: it warns once per keyword and file and extracts the files as they are, so the warnings are left out
+    tar --warning=no-unknown-keyword -xzf "$NAME" -C "$STAGE"
     test -f "$STAGE/src/sweepkit/__init__.py" || { echo "archive has no src/sweepkit"; exit 1; }
     mkdir -p "$ROOT"
     ITEMS="src tests sweeps node env docs templates notebooks README.md START_HERE.md CLAUDE.md TESTING.md LICENSE
@@ -81,7 +83,7 @@ case "$NAME" in
     DATA_NAME=$(echo "$NAME" | sed -E "s/^${PROJECT}_data_([A-Za-z0-9_.-]+)_[0-9TZ]+\.tar$/\1/")
     DEST="$ROOT/data/$DATA_NAME"
     if [ -e "$DEST" ]; then echo "REFUSING: $DEST exists. Move it aside first."; exit 1; fi
-    tar -xf "$NAME" -C "$STAGE"
+    tar --warning=no-unknown-keyword -xf "$NAME" -C "$STAGE"
     test -d "$STAGE/$DATA_NAME" || { echo "archive has no folder $DATA_NAME"; exit 1; }
     mkdir -p "$ROOT/data"
     mv "$STAGE/$DATA_NAME" "$DEST"

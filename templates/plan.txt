@@ -5,8 +5,9 @@
 # which `date -d` reads now: at least 30 minutes ahead) and starts nothing, so a schedule that would be refused stops
 # the chain before anything is enqueued.
 # Step 2 smoke-tests the sweeps on a free GPU of the round's, as the workers will run them, and enqueues them all or
-# none. Step 3 starts the workers; they stop at the end time, or when less than {{min_free_gb}} GB is free in the
-# home folder.
+# none. Step 3 starts the workers; they stop when the queue is empty, at the end time, or when less than
+# {{min_free_gb}} GB is free in the home folder. Once no job is waiting or running and the workers have finished,
+# the schedule ends (--end-when-empty), and the round's session with it.
 env ENVIRONMENT={{environment}} MIN_FREE_GB={{min_free_gb}} bash node/schedule.sh --check {{workers_per_gpu}} "$(date +%s):{{gpus}}" "$(date -d '{{end_time}}' +%s):end"
 env ENVIRONMENT={{environment}} SMOKE_DEVICE=cuda SMOKE_GPUS={{gpus}} bash node/smoke_enqueue.sh {{sweep_files}}
-env ENVIRONMENT={{environment}} MIN_FREE_GB={{min_free_gb}} bash node/schedule.sh {{workers_per_gpu}} "$(date +%s):{{gpus}}" "$(date -d '{{end_time}}' +%s):end"
+env ENVIRONMENT={{environment}} MIN_FREE_GB={{min_free_gb}} bash node/schedule.sh --end-when-empty {{workers_per_gpu}} "$(date +%s):{{gpus}}" "$(date -d '{{end_time}}' +%s):end"

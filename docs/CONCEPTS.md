@@ -54,6 +54,21 @@ A sweep file (JSON) holds:
 | `base` | a complete configuration: all seven sections |
 | `stages` | each with a `name`, a `kind`, a `priority` (0 to 999, higher runs first) and its `seeds` |
 
+The purpose says what the sweep is for. Two things in the code depend on it: `enqueue` warns about a stage with one
+seed except in `learning`, `smoke` and `regression` sweeps, and refuses a `confirm` or `final` sweep that reuses a
+seed of a sweep it `follows`. The rest is for the reader.
+
+| Purpose | For |
+|---|---|
+| `learning` | trying a method, an example or the template itself, and reproducing a person's script (as `sweeps/checks/laptop_hdbscan.json` does); nothing is chosen from it |
+| `smoke` | seeing that every configuration runs at all |
+| `screen` | comparing many configurations to keep a few: at least three seeds (one for a method that gives the same result for every seed, compared over subsamples) |
+| `confirm` | the few kept, on five seeds that no sweep it follows used |
+| `final` | the chosen configuration's reported run (on every row, or on the test folds), on seeds no sweep it follows used |
+| `control` | controls run on their own (a shuffled target, a trivial baseline) |
+| `protocol` | a published protocol reproduced as published (its split, its settings) |
+| `regression` | configurations run before, again, to show that the code still gives their results |
+
 Stage kinds:
 
 | Kind | Configurations |
