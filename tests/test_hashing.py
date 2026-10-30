@@ -59,6 +59,28 @@ class TestHashing(unittest.TestCase):
             (root / "README.md").write_text("changed\n")
             self.assertNotEqual(shell, tree_digest(root))
 
+    @unittest.skipIf(shutil.which("bash") is None or shutil.which("shasum") is None, "no bash or shasum here")
+    @unittest.skipIf(not (REPO / "node" / "tree_digest.sh").is_file(), "node/ was removed from this copy")
+    def test_shell_digest_on_a_mac_without_sha256sum_or_xargs_r(self):
+        # A stock Mac has shasum but maybe no sha256sum, and an older Mac's xargs refuses -r. Stand-ins: a PATH with
+        # the tools the script uses except sha256sum, and an xargs that refuses -r as such a Mac's does.
+        with tempfile.TemporaryDirectory() as d:
+            root, tools = Path(d) / "repo", Path(d) / "bin"
+            root.mkdir()
+            tools.mkdir()
+            self._tree(root)
+            for name in ("find", "sort", "cut", "shasum", "perl", "cat"):
+                if shutil.which(name):
+                    (tools / name).symlink_to(shutil.which(name))
+            xargs = tools / "xargs"
+            xargs.write_text('#!/bin/sh\nfor a in "$@"; do [ "$a" = -r ] && { echo "xargs: illegal option -- r" >&2; '
+                             f'exit 1; }}; done\nexec {shutil.which("xargs")} "$@"\n')
+            xargs.chmod(0o755)
+            run = subprocess.run([shutil.which("bash"), str(REPO / "node" / "tree_digest.sh"), str(root)],
+                                 capture_output=True, text=True, env={"PATH": str(tools)})
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(run.stdout.strip(), tree_digest(root))
+
     def test_crlf_changes_the_digest(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
